@@ -12,7 +12,7 @@ const app = express();
 
 
 app.use(cors({
-  origin: ["http://localhost:5173", "http://localhost:5174"],
+  origin: ["https://subhojanam-client.vercel.app"],
   methods: ["GET", "POST", "PUT", "DELETE"],
   credentials: true
 }));
@@ -36,9 +36,11 @@ app.use("/api/admin", adminRouter);
 const server = async () => {
   try {
     await connectDb();
-    app.listen(process.env.PORT, () => {
-      console.log(`server connected on port ${process.env.PORT}`);
-    });
+const PORT = process.env.PORT || 8080;
+
+app.listen(PORT, () => {
+  console.log(`server connected on port ${PORT}`);
+});
   } catch (error) {
     console.log("server disconnected", error);
   }
