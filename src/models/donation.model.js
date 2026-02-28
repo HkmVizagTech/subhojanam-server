@@ -10,6 +10,13 @@ const donationSchema = new mongoose.Schema(
     amount: { type: Number, required: true },
     razorpayOrderId: String,
     razorpayPaymentId: String,
+    
+    certificate: { type: Boolean, default: false },
+    panNumber: String,
+    address: String,
+    city: String,
+    state: String,
+    pincode: String,
 
     subscriptionId: String,
     isRecurring: {

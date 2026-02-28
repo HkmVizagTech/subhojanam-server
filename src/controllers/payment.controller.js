@@ -5,7 +5,7 @@ require("dotenv").config()
 const paymentController = {
   createOrder : async(req,res)=>{
     try {
-        const {  name,email,mobile,occasion,sevaDate,dob,amount} = req.body;
+        const {  name, email, mobile, occasion, sevaDate, dob, amount, certificate, panNumber, address, city, state, pincode } = req.body;
 
   if (!amount || amount < 1) {
   return res.status(400).send("Invalid amount");
@@ -29,6 +29,12 @@ const paymentController = {
       sevaDate,
       dob,
       amount,
+      certificate,
+      panNumber,
+      address,
+      city,
+      state,
+      pincode,
       razorpayOrderId:order.id
     })
 
@@ -54,7 +60,13 @@ const paymentController = {
       occasion,
       sevaDate,
       dob,
-      amount
+      amount,
+      certificate,
+      panNumber,
+      address,
+      city,
+      state,
+      pincode
     } = req.body;
 
     if (!amount || amount < 1) {
@@ -63,8 +75,8 @@ const paymentController = {
 
     let planId;
 
-    console.log("Using KEY:", process.env.RAZORPAY_KEY_ID);
-    console.log("Using PLAN ID:", planId);
+console.log("Using KEY:", process.env.RAZORPAY_KEY_ID);
+console.log("Using PLAN ID:", planId);
 
     if (amount == 500) {
       planId = process.env.RAZORPAY_PLAN_500;
@@ -125,6 +137,12 @@ const paymentController = {
       sevaDate,
       dob,
       amount,
+      certificate,
+      panNumber,
+      address,
+      city,
+      state,
+      pincode,
       subscriptionId: subscription.id,
       isRecurring: true,
       status: "created",
@@ -138,17 +156,17 @@ const paymentController = {
     });
 
   } catch (error) {
-    // console.log("====== SUBSCRIPTION ERROR START ======");
-    console.log("Status Code:", error.statusCode);
-    console.log("Error Description:", error.error?.description);
-    // console.log("Full Error Object:", error);
-    // console.log("====== SUBSCRIPTION ERROR END ======");
+  console.log("====== SUBSCRIPTION ERROR START ======");
+  console.log("Status Code:", error.statusCode);
+  console.log("Error Description:", error.error?.description);
+  console.log("Full Error Object:", error);
+  console.log("====== SUBSCRIPTION ERROR END ======");
 
-    return res.status(500).json({
-      message: "Subscription creation failed",
-      error: error.error?.description || error.message
-    });
-  }
+  return res.status(500).json({
+    message: "Subscription creation failed",
+    error: error.error?.description || error.message
+  });
+}
 }
 
 

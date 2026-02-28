@@ -29,8 +29,10 @@ const webHookControler = {
         return res.status(400).send("Invalid signature");
       }
 
+
       console.log("Received signature:", signature);
       console.log("Generated signature:", expectedSignature);
+
 
       const event = JSON.parse(body);
       console.log("Webhook Event:", event.event);
