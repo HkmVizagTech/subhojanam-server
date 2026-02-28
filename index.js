@@ -12,7 +12,7 @@ const app = express();
 
 
 app.use(cors({
-  origin: ["https://subhojanam-client.vercel.app"],
+  origin: ["https://annadan.harekrishnavizag.org"],
   methods: ["GET", "POST", "PUT", "DELETE"],
   credentials: true
 }));
