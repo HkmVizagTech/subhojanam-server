@@ -251,7 +251,14 @@ const adminController = {
         occasion: txn.occasion,
         isRecurring: txn.isRecurring,
         razorpayOrderId: txn.razorpayOrderId,
-        razorpayPaymentId: txn.razorpayPaymentId
+        razorpayPaymentId: txn.razorpayPaymentId,
+        certificate: txn.certificate,
+        panNumber: txn.panNumber,
+        address: txn.address,
+        city: txn.city,
+        state: txn.state,
+        pincode: txn.pincode,
+        subscriptionId: txn.subscriptionId
       }));
 
       res.status(200).json({
