@@ -18,6 +18,10 @@ const donationSchema = new mongoose.Schema(
     state: String,
     pincode: String,
 
+    mahaprasadam: { type: Boolean, default: false },
+    prasadamAddressOption: { type: String, enum: ['same', 'different'], default: 'same' },
+    prasadamAddress: String,
+
     subscriptionId: String,
     isRecurring: {
       type: Boolean,

@@ -5,7 +5,7 @@ require("dotenv").config()
 const paymentController = {
   createOrder : async(req,res)=>{
     try {
-        const {  name, email, mobile, occasion, sevaDate, dob, amount, certificate, panNumber, address, city, state, pincode } = req.body;
+        const {  name, email, mobile, occasion, sevaDate, dob, amount, certificate, panNumber, address, city, state, pincode, mahaprasadam, prasadamAddressOption, prasadamAddress } = req.body;
 
   if (!amount || amount < 1) {
   return res.status(400).send("Invalid amount");
@@ -35,6 +35,9 @@ const paymentController = {
       city,
       state,
       pincode,
+      mahaprasadam,
+      prasadamAddressOption,
+      prasadamAddress,
       razorpayOrderId:order.id
     })
 
@@ -66,7 +69,10 @@ const paymentController = {
       address,
       city,
       state,
-      pincode
+      pincode,
+      mahaprasadam,
+      prasadamAddressOption,
+      prasadamAddress
     } = req.body;
 
     if (!amount || amount < 1) {
@@ -143,6 +149,9 @@ console.log("Using PLAN ID:", planId);
       city,
       state,
       pincode,
+      mahaprasadam,
+      prasadamAddressOption,
+      prasadamAddress,
       subscriptionId: subscription.id,
       isRecurring: true,
       status: "created",
