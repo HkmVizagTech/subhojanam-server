@@ -258,6 +258,9 @@ const adminController = {
         city: txn.city,
         state: txn.state,
         pincode: txn.pincode,
+        mahaprasadam: txn.mahaprasadam,
+        prasadamAddressOption: txn.prasadamAddressOption,
+        prasadamAddress: txn.prasadamAddress,
         subscriptionId: txn.subscriptionId
       }));
 
