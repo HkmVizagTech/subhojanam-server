@@ -1,9 +1,9 @@
-const PDFDocument = require("pdfkit");
+const puppeteer = require("puppeteer");
+const ejs = require("ejs");
 const fs = require("fs");
 const path = require("path");
 const { settingsModel } = require("../models/settings.model");
 const { donationModle } = require("../models/donation.model");
-const numberToWords = require("number-to-words");
 
 const generateReceipt = async (donation) => {
   // Get settings to fetch current receipt number
@@ -33,76 +33,75 @@ const generateReceipt = async (donation) => {
     receiptGeneratedAt: new Date()
   });
 
+  const templatePath = path.join(__dirname, "../templates/receipt.ejs");
+
   // Format receipt number: HKMI|2024|D/VSP|15740 (last 5 digits dynamic)
   const formattedReceiptNumber = `HKMI|${new Date().getFullYear()}|D/VSP|${String(receiptNumber).padStart(5, '0')}`;
   const receiptDate = new Date().toLocaleDateString("en-GB");
-  const address = `${donation.address}, ${donation.city}, ${donation.state} - ${donation.pincode}`;
-  
-  // Convert amount to words
-  const amountWords = numberToWords.toWords(donation.amount).toUpperCase() + " ONLY";
 
-  // Create receipts directory
+  const address = `${donation.address}, ${donation.city}, ${donation.state} - ${donation.pincode}`;
+
+  const logoBase64 = fs.readFileSync(
+    path.join(__dirname, "../public/hkmi-logo.jpg"),
+    "base64"
+  );
+
+  const stampBase64 = fs.readFileSync(
+    path.join(__dirname, "../public/hkmi-stamp-removebg-preview.png"),
+    "base64"
+  );
+
+  const html = await ejs.renderFile(templatePath, {
+    receiptNumber: formattedReceiptNumber,
+    receiptDate,
+    donorName: donation.name,
+    address,
+    patronId: "",
+    sevakName: "",
+    mobile: donation.mobile,
+    certificate: donation.certificate ? "YES" : "NO",
+    email: donation.email,
+    pan: donation.panNumber || "",
+    amount: donation.amount,
+    amountWords: "ONE THOUSAND SEVEN HUNDRED ONLY",
+    paymentRef: donation.razorpayPaymentId,
+    paymentDate: receiptDate,
+    logoBase64,
+    stampBase64
+  });
+
+  // Launch puppeteer with args suitable for cloud environments
+  const browser = await puppeteer.launch({
+    headless: true,
+    args: [
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-dev-shm-usage",
+      "--disable-gpu",
+      "--disable-software-rasterizer",
+      "--disable-extensions",
+    ]
+  });
+
+  const page = await browser.newPage();
+
+  await page.setContent(html, { waitUntil: "load" });
+
   const receiptsDir = path.join(__dirname, "../../receipts");
+
   if (!fs.existsSync(receiptsDir)) {
     fs.mkdirSync(receiptsDir);
   }
 
   const filePath = path.join(receiptsDir, `${donation._id}.pdf`);
 
-  // Create PDF with PDFKit
-  const doc = new PDFDocument({ size: 'A4', margin: 50 });
-  const stream = fs.createWriteStream(filePath);
-  doc.pipe(stream);
-
-  // Header
-  doc.fontSize(20).fillColor('#0A97EF').text('Hare Krishna Movement - Visakhapatnam', { align: 'center' });
-  doc.moveDown(0.5);
-  doc.fontSize(16).fillColor('#000').text('DONATION RECEIPT', { align: 'center' });
-  doc.moveDown(1);
-
-  // Receipt details
-  doc.fontSize(12);
-  doc.fillColor('#000').text(`Receipt No: ${formattedReceiptNumber}`, { align: 'right' });
-  doc.text(`Date: ${receiptDate}`, { align: 'right' });
-  doc.moveDown(1.5);
-
-  // Donor Information
-  doc.fontSize(14).fillColor('#0A97EF').text('Donor Information', { underline: true });
-  doc.moveDown(0.5);
-  doc.fontSize(11).fillColor('#000');
-  doc.text(`Name: ${donation.name}`);
-  doc.text(`Address: ${address}`);
-  doc.text(`Mobile: ${donation.mobile}`);
-  doc.text(`Email: ${donation.email}`);
-  if (donation.panNumber) {
-    doc.text(`PAN: ${donation.panNumber}`);
-  }
-  doc.moveDown(1.5);
-
-  // Donation Details
-  doc.fontSize(14).fillColor('#0A97EF').text('Donation Details', { underline: true });
-  doc.moveDown(0.5);
-  doc.fontSize(11).fillColor('#000');
-  doc.text(`Amount: ₹${donation.amount}`);
-  doc.text(`Amount in Words: ${amountWords}`);
-  doc.text(`Payment Reference: ${donation.razorpayPaymentId}`);
-  doc.text(`80G Certificate: ${donation.certificate ? 'YES' : 'NO'}`);
-  doc.moveDown(1.5);
-
-  // Footer
-  doc.fontSize(10).fillColor('#666');
-  doc.text('This is a computer-generated receipt and does not require a signature.', { align: 'center' });
-  doc.moveDown(0.5);
-  doc.text('Hare Krishna Movement - Visakhapatnam', { align: 'center' });
-  doc.text('Thank you for your generous donation!', { align: 'center' });
-
-  doc.end();
-
-  // Wait for PDF to be written
-  await new Promise((resolve, reject) => {
-    stream.on('finish', resolve);
-    stream.on('error', reject);
+  await page.pdf({
+    path: filePath,
+    format: "A4",
+    printBackground: true,
   });
+
+  await browser.close();
 
   return filePath;
 };

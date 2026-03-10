@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "@sparticuz/chromium": "^143.0.4",
     "axios": "^1.13.6",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
@@ -15,6 +16,7 @@
     "mongoose": "^9.2.2",
     "number-to-words": "^1.2.4",
     "pdfkit": "^0.17.2",
+    "puppeteer": "^24.38.0",
     "razorpay": "^2.9.6"
   },
   "name": "server",
@@ -24,7 +26,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node index.js",
-    "dev": "nodemon index.js"
+    "dev": "nodemon index.js",
+    "postinstall": "node node_modules/puppeteer/install.mjs"
   },
   "repository": {
     "type": "git",
