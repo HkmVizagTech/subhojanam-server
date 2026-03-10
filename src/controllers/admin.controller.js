@@ -671,7 +671,8 @@ const adminController = {
           minimumDonationAmount: settings.minimumDonationAmount,
           currency: settings.currency,
           notifications: settings.notifications,
-          emailTemplate: settings.emailTemplate
+          emailTemplate: settings.emailTemplate,
+          receiptSettings: settings.receiptSettings
         }
       });
     } catch (error) {
