@@ -59,6 +59,7 @@ const webHookControler = {
     case "payment.captured": {
 
   const payment = event.payload.payment.entity;
+  console.log("Payment captured, order_id:", payment.order_id);
 
   const donation = await donationModle.findOneAndUpdate(
     {
@@ -72,9 +73,17 @@ const webHookControler = {
     { new: true }
   );
 
-  if (!donation) break;
+  console.log("Donation found:", donation ? donation._id : "NULL");
+  console.log("Donation certificate:", donation?.certificate);
+  console.log("Donation amount:", donation?.amount);
+
+  if (!donation) {
+    console.log("No donation found, breaking...");
+    break;
+  }
 
   if (donation.certificate === true && donation.amount >= 1) {
+    console.log("Conditions met! Starting receipt generation...");
     try {
       console.log("Starting receipt generation for donation:", donation._id);
       const filePath = await generateReceipt(donation);
@@ -90,6 +99,9 @@ const webHookControler = {
     } catch (error) {
       console.error("Error in receipt generation/WhatsApp:", error);
     }
+  } else {
+    console.log("Conditions NOT met for receipt generation");
+    console.log("Certificate:", donation.certificate, "Amount:", donation.amount);
   }
 
   break;

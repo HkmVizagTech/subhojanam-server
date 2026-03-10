@@ -7,6 +7,7 @@ const { adminRouter } = require("./src/routes/admin.routes");
 const authRouter = require("./src/routes/auth.routes");
 const cors = require("cors")
 require("dotenv").config();
+// Build: 2026-03-10 10:05 - With detailed logging
 
 const app = express();
 
