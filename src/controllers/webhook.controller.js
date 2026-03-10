@@ -81,6 +81,7 @@ const webHookControler = {
     console.log("Recent donations in DB:", JSON.stringify(recentDonations, null, 2));
   }
 
+  console.log("Attempting to update donation status to 'paid'...");
   const donation = await donationModle.findOneAndUpdate(
     {
       razorpayOrderId: payment.order_id,
@@ -93,9 +94,18 @@ const webHookControler = {
     { new: true }
   );
 
-  console.log("Donation found:", donation ? donation._id : "NULL");
-  console.log("Donation certificate:", donation?.certificate);
-  console.log("Donation amount:", donation?.amount);
+  console.log("Update result - Donation found:", donation ? "YES" : "NO");
+  
+  if (donation) {
+    console.log("Successfully updated donation to paid status");
+    console.log("Donation ID:", donation._id);
+    console.log("Donation certificate:", donation.certificate);
+    console.log("Donation amount:", donation.amount);
+  } else {
+    console.log("Failed to update - checking current status again...");
+    const recheckDonation = await donationModle.findOne({ razorpayOrderId: payment.order_id });
+    console.log("Recheck - Donation status now:", recheckDonation ? recheckDonation.status : "NOT FOUND");
+  }
 
   if (!donation) {
     console.log("No donation found or already processed. Checking if receipt already sent...");
