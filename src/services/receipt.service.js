@@ -6,18 +6,23 @@ const { settingsModel } = require("../models/settings.model");
 const { donationModle } = require("../models/donation.model");
 
 const generateReceipt = async (donation) => {
-  // Get settings to fetch current receipt number
-  let settings = await settingsModel.findOne();
-  
-  // If no settings exist, create default
-  if (!settings) {
-    settings = await settingsModel.create({
-      receiptSettings: {
-        startNumber: 5000,
-        currentReceiptNumber: 5000
-      }
-    });
-  }
+  try {
+    console.log("Receipt generation started for donation:", donation._id);
+    
+    // Get settings to fetch current receipt number
+    let settings = await settingsModel.findOne();
+    console.log("Settings fetched, current receipt number:", settings?.receiptSettings?.currentReceiptNumber);
+    
+    // If no settings exist, create default
+    if (!settings) {
+      console.log("No settings found, creating default...");
+      settings = await settingsModel.create({
+        receiptSettings: {
+          startNumber: 5000,
+          currentReceiptNumber: 5000
+        }
+      });
+    }
 
   // Get and increment receipt number
   const receiptNumber = settings.receiptSettings.currentReceiptNumber || settings.receiptSettings.startNumber;
@@ -95,15 +100,23 @@ const generateReceipt = async (donation) => {
 
   const filePath = path.join(receiptsDir, `${donation._id}.pdf`);
 
+  console.log("Generating PDF at path:", filePath);
   await page.pdf({
     path: filePath,
     format: "A4",
     printBackground: true,
   });
 
+  console.log("Closing browser...");
   await browser.close();
 
+  console.log("Receipt PDF generated successfully!");
   return filePath;
+  
+  } catch (error) {
+    console.error("Error in generateReceipt:", error);
+    throw error;
+  }
 };
 
 module.exports = { generateReceipt };

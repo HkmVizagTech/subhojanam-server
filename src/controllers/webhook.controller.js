@@ -75,15 +75,21 @@ const webHookControler = {
   if (!donation) break;
 
   if (donation.certificate === true && donation.amount >= 1) {
+    try {
+      console.log("Starting receipt generation for donation:", donation._id);
+      const filePath = await generateReceipt(donation);
+      console.log("Receipt generated successfully at:", filePath);
 
-    const filePath = await generateReceipt(donation);
+      const phone = donation.mobile.startsWith("91")
+        ? donation.mobile
+        : `91${donation.mobile}`;
 
-    const phone = donation.mobile.startsWith("91")
-      ? donation.mobile
-      : `91${donation.mobile}`;
-
-    await sendReceiptWhatsapp(phone, filePath, donation.name, donation.amount);
-
+      console.log("Sending WhatsApp to:", phone);
+      await sendReceiptWhatsapp(phone, filePath, donation.name, donation.amount);
+      console.log("WhatsApp sent successfully!");
+    } catch (error) {
+      console.error("Error in receipt generation/WhatsApp:", error);
+    }
   }
 
   break;
