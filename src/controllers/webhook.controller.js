@@ -59,7 +59,27 @@ const webHookControler = {
     case "payment.captured": {
 
   const payment = event.payload.payment.entity;
-  console.log("Payment captured, order_id:", payment.order_id);
+  console.log("=== PAYMENT CAPTURED WEBHOOK ===");
+  console.log("Payment ID:", payment.id);
+  console.log("Order ID from Razorpay:", payment.order_id);
+  console.log("Payment Amount:", payment.amount / 100);
+  console.log("Payment Status:", payment.status);
+
+  // First check if donation exists at all
+  const existingDonation = await donationModle.findOne({ razorpayOrderId: payment.order_id });
+  console.log("Searching DB for razorpayOrderId:", payment.order_id);
+  console.log("Existing donation found:", existingDonation ? "YES" : "NO");
+  
+  if (existingDonation) {
+    console.log("Existing donation ID:", existingDonation._id);
+    console.log("Existing donation status:", existingDonation.status);
+    console.log("Existing donation amount:", existingDonation.amount);
+    console.log("Existing donation certificate:", existingDonation.certificate);
+  } else {
+    // If not found, let's check what donations exist recently
+    const recentDonations = await donationModle.find().sort({ createdAt: -1 }).limit(5).select('razorpayOrderId amount status createdAt');
+    console.log("Recent donations in DB:", JSON.stringify(recentDonations, null, 2));
+  }
 
   const donation = await donationModle.findOneAndUpdate(
     {
@@ -78,7 +98,33 @@ const webHookControler = {
   console.log("Donation amount:", donation?.amount);
 
   if (!donation) {
-    console.log("No donation found, breaking...");
+    console.log("No donation found or already processed. Checking if receipt already sent...");
+    
+    // Check if this donation exists and already has a receipt
+    if (existingDonation && existingDonation.status === "paid") {
+      console.log("Donation already processed (status: paid). Checking receipt...");
+      
+      if (existingDonation.certificate === true && existingDonation.amount >= 1 && !existingDonation.receiptNumber) {
+        console.log("Receipt not yet generated for this paid donation. Generating now...");
+        
+        try {
+          const filePath = await generateReceipt(existingDonation);
+          console.log("Receipt generated successfully at:", filePath);
+
+          const phone = existingDonation.mobile.startsWith("91")
+            ? existingDonation.mobile
+            : `91${existingDonation.mobile}`;
+
+          console.log("Sending WhatsApp to:", phone);
+          await sendReceiptWhatsapp(phone, filePath, existingDonation.name, existingDonation.amount);
+          console.log("WhatsApp sent successfully!");
+        } catch (error) {
+          console.error("Error in receipt generation/WhatsApp:", error);
+        }
+      } else {
+        console.log("Receipt already generated or not eligible. receiptNumber:", existingDonation.receiptNumber);
+      }
+    }
     break;
   }
 
