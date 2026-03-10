@@ -4,6 +4,7 @@ const fs = require("fs");
 const path = require("path");
 const { settingsModel } = require("../models/settings.model");
 const { donationModle } = require("../models/donation.model");
+const numberToWords = require("number-to-words");
 
 const generateReceipt = async (donation) => {
   try {
@@ -56,6 +57,9 @@ const generateReceipt = async (donation) => {
     "base64"
   );
 
+  // Convert amount to words dynamically
+  const amountWords = numberToWords.toWords(donation.amount).toUpperCase() + " RUPEES ONLY";
+
   const html = await ejs.renderFile(templatePath, {
     receiptNumber: formattedReceiptNumber,
     receiptDate,
@@ -68,7 +72,7 @@ const generateReceipt = async (donation) => {
     email: donation.email,
     pan: donation.panNumber || "",
     amount: donation.amount,
-    amountWords: "ONE THOUSAND SEVEN HUNDRED ONLY",
+    amountWords: amountWords,
     paymentRef: donation.razorpayPaymentId,
     paymentDate: receiptDate,
     logoBase64,
