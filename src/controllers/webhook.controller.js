@@ -115,9 +115,9 @@ const webHookControler = {
       console.log("Using existing donation data for receipt generation");
       console.log("Donation was already updated to:", recheckDonation ? recheckDonation.status : "UNKNOWN");
       
-      // Check if receipt needs to be generated
-      if (existingDonation.certificate === true && existingDonation.amount >= 1) {
-        console.log("Donation qualifies for receipt. Checking if already generated...");
+      // Check if receipt needs to be generated (only amount check, send to everyone >= ₹1)
+      if (existingDonation.amount >= 1) {
+        console.log("Donation qualifies for receipt (amount >= 1). Checking if already generated...");
         
         // Recheck to get latest data including receiptNumber
         const latestDonation = await donationModle.findById(existingDonation._id);
@@ -145,14 +145,15 @@ const webHookControler = {
           console.log("Could not find donation for receipt generation");
         }
       } else {
-        console.log("Donation does not qualify for receipt. Certificate:", existingDonation.certificate, "Amount:", existingDonation.amount);
+        console.log("Donation does not qualify for receipt. Amount:", existingDonation.amount, "(must be >= 1)");
       }
     }
     break;
   }
 
-  if (donation.certificate === true && donation.amount >= 1) {
-    console.log("Conditions met! Starting receipt generation...");
+  // Send receipt to everyone with amount >= 1 (regardless of 80G certificate selection)
+  if (donation.amount >= 1) {
+    console.log("Conditions met! Starting receipt generation (amount >= 1)...");
     try {
       console.log("Starting receipt generation for donation:", donation._id);
       const filePath = await generateReceipt(donation);
@@ -170,7 +171,7 @@ const webHookControler = {
     }
   } else {
     console.log("Conditions NOT met for receipt generation");
-    console.log("Certificate:", donation.certificate, "Amount:", donation.amount);
+    console.log("Amount:", donation.amount, "(must be >= 1)");
   }
 
   break;
