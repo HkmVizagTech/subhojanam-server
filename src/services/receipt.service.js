@@ -109,6 +109,12 @@ const generateReceipt = async (donation) => {
     path: filePath,
     format: "A4",
     printBackground: true,
+    margin: {
+      top: 0,
+      right: 0,
+      bottom: 0,
+      left: 0
+    }
   });
 
   console.log("Closing browser...");
