@@ -94,7 +94,9 @@ const generateReceipt = async (donation) => {
     fs.mkdirSync(receiptsDir);
   }
 
-  const filePath = path.join(receiptsDir, `${donation._id}.pdf`);
+const safeName = donation.name.replace(/\s+/g, "_");
+const fileName = `Donation_Receipt_${safeName}.pdf`;
+const filePath = path.join(receiptsDir, fileName);
 
   console.log("Generating PDF at path:", filePath);
   await page.pdf({

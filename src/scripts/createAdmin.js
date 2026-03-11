@@ -8,7 +8,7 @@ const createAdmin = async () => {
     const mongoUrl = process.env.MONGOURL || process.env.MONGODB_URI;
     
     if (!mongoUrl) {
-      console.error("❌ MongoDB URL not found in .env file!");
+      console.error(" MongoDB URL not found in .env file!");
       console.error("Please add MONGOURL or MONGODB_URI to your .env file");
       process.exit(1);
     }
@@ -19,7 +19,7 @@ const createAdmin = async () => {
     const existingAdmin = await Admin.findOne({ username: "admin" });
     
     if (existingAdmin) {
-      console.log("❌ Admin user already exists!");
+      console.log(" Admin user already exists!");
       console.log("Username:", existingAdmin.username);
       console.log("Email:", existingAdmin.email);
       process.exit(0);
@@ -28,7 +28,7 @@ const createAdmin = async () => {
     const admin = new Admin({
       username: "admin",
       email: "admin@subhojanam.org",
-      password: "admin123", // This will be hashed automatically
+      password: "admin123", 
       name: "Admin User",
       role: "super-admin",
       isActive: true
@@ -36,13 +36,13 @@ const createAdmin = async () => {
 
     await admin.save();
 
-    console.log("✅ Admin user created successfully!");
+    console.log(" Admin user created successfully!");
     console.log("==================================");
     console.log("Username: admin");
     console.log("Email: admin@subhojanam.org");
     console.log("Password: admin123");
     console.log("==================================");
-    console.log("⚠️  Please change the password after first login!");
+    console.log("  Please change the password after first login!");
     
     process.exit(0);
   } catch (error) {
