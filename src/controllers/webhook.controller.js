@@ -59,13 +59,14 @@ const webHookControler = {
     case "payment.captured": {
 
   const payment = event.payload.payment.entity;
-  console.log("=== PAYMENT CAPTURED WEBHOOK ===");
-  console.log("Payment ID:", payment.id);
-  console.log("Order ID from Razorpay:", payment.order_id);
-  console.log("Payment Amount:", payment.amount / 100);
-  console.log("Payment Status:", payment.status);
 
-  // First check if donation exists at all
+
+  // console.log("=== PAYMENT CAPTURED WEBHOOK ===");
+  // console.log("Payment ID:", payment.id);
+  // console.log("Order ID from Razorpay:", payment.order_id);
+  // console.log("Payment Amount:", payment.amount / 100);
+  // console.log("Payment Status:", payment.status);
+
   const existingDonation = await donationModle.findOne({ razorpayOrderId: payment.order_id });
   console.log("Searching DB for razorpayOrderId:", payment.order_id);
   console.log("Existing donation found:", existingDonation ? "YES" : "NO");
@@ -76,7 +77,7 @@ const webHookControler = {
     console.log("Existing donation amount:", existingDonation.amount);
     console.log("Existing donation certificate:", existingDonation.certificate);
   } else {
-    // If not found, let's check what donations exist recently
+   
     const recentDonations = await donationModle.find().sort({ createdAt: -1 }).limit(5).select('razorpayOrderId amount status createdAt');
     console.log("Recent donations in DB:", JSON.stringify(recentDonations, null, 2));
   }
@@ -110,16 +111,14 @@ const webHookControler = {
   if (!donation) {
     console.log("No donation found or already processed. Checking if receipt already sent...");
     
-    // Use the existingDonation we fetched earlier
     if (existingDonation) {
       console.log("Using existing donation data for receipt generation");
       console.log("Donation was already updated to:", recheckDonation ? recheckDonation.status : "UNKNOWN");
       
-      // Check if receipt needs to be generated (only amount check, send to everyone >= ₹1)
       if (existingDonation.amount >= 1) {
         console.log("Donation qualifies for receipt (amount >= 1). Checking if already generated...");
         
-        // Recheck to get latest data including receiptNumber
+        
         const latestDonation = await donationModle.findById(existingDonation._id);
         
         if (latestDonation && !latestDonation.receiptNumber) {
@@ -151,7 +150,7 @@ const webHookControler = {
     break;
   }
 
-  // Send receipt to everyone with amount >= 1 (regardless of 80G certificate selection)
+
   if (donation.amount >= 1) {
     console.log("Conditions met! Starting receipt generation (amount >= 1)...");
     try {

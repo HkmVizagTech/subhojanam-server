@@ -167,11 +167,11 @@ console.log("Using PLAN ID:", planId);
     });
 
   } catch (error) {
-  console.log("====== SUBSCRIPTION ERROR START ======");
-  console.log("Status Code:", error.statusCode);
-  console.log("Error Description:", error.error?.description);
-  console.log("Full Error Object:", error);
-  console.log("====== SUBSCRIPTION ERROR END ======");
+  // console.log("====== SUBSCRIPTION ERROR START ======");
+  // console.log("Status Code:", error.statusCode);
+  // console.log("Error Description:", error.error?.description);
+  // console.log("Full Error Object:", error);
+  // console.log("====== SUBSCRIPTION ERROR END ======");
 
   return res.status(500).json({
     message: "Subscription creation failed",
@@ -184,31 +184,47 @@ downloadReceipt: async (req, res) => {
   try {
     const { donationId } = req.params;
     
-    // Find the donation
+    console.log("=== DOWNLOAD RECEIPT REQUEST ===");
+    console.log("Donation ID:", donationId);
+    
     const donation = await donationModle.findById(donationId);
     
     if (!donation) {
+      console.log("ERROR: Donation not found in database");
       return res.status(404).json({ message: "Donation not found" });
     }
     
-    // Check if receipt exists
+    console.log("Donation found:", {
+      id: donation._id,
+      name: donation.name,
+      amount: donation.amount,
+      status: donation.status,
+      receiptNumber: donation.receiptNumber,
+      receiptGeneratedAt: donation.receiptGeneratedAt
+    });
+  
     if (!donation.receiptNumber) {
+      console.log("ERROR: Receipt number not set - receipt not yet generated");
       return res.status(404).json({ message: "Receipt not yet generated. Please wait a moment and try again." });
     }
     
-    // Path to the PDF file
     const filePath = path.join(__dirname, "../../receipts", `${donationId}.pdf`);
+    console.log("Looking for PDF at:", filePath);
     
-    // Check if file exists
     if (!fs.existsSync(filePath)) {
+      console.log("ERROR: PDF file does not exist at path");
       return res.status(404).json({ message: "Receipt file not found" });
     }
     
-    // Send the file
+    console.log("SUCCESS: Sending PDF file");
     res.download(filePath, `Receipt_${donation.receiptNumber}.pdf`, (err) => {
       if (err) {
         console.error("Error downloading receipt:", err);
-        res.status(500).json({ message: "Error downloading receipt" });
+        if (!res.headersSent) {
+          res.status(500).json({ message: "Error downloading receipt" });
+        }
+      } else {
+        console.log("Download completed successfully");
       }
     });
     
