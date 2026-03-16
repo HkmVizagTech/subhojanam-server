@@ -15,7 +15,7 @@ const sendReceiptWhatsapp = async (phone, filePath, donorName, amount, paymentTy
     templateName = "andseva_monthly_success_reciept";
   }
   form.append("template_name", templateName);
-  form.append("template_language", "en_GB");
+  form.append("template_language", "en");
 
 
   form.append(
