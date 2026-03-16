@@ -3,14 +3,18 @@ const FormData = require("form-data");
 const fs = require("fs");
 require("dotenv").config();
 
-const sendReceiptWhatsapp = async (phone, filePath, donorName, amount) => {
+const sendReceiptWhatsapp = async (phone, filePath, donorName, amount, paymentType = "normal") => {
 
   const form = new FormData();
 
   form.append("token", process.env.FLAXXA_TOKEN);
   form.append("phone", phone);
 
-  form.append("template_name", "thank_you_page");
+  let templateName = "annadana_acknowledgement_receipt";
+  if (paymentType === "subscription") {
+    templateName = "andseva_monthly_success_reciept";
+  }
+  form.append("template_name", templateName);
   form.append("template_language", "en_GB");
 
 

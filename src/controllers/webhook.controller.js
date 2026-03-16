@@ -110,7 +110,11 @@ const webHookControler = {
               : `91${latestDonation.mobile}`;
 
             console.log("Sending WhatsApp to:", phone);
-            await sendReceiptWhatsapp(phone, filePath, latestDonation.name, latestDonation.amount);
+            let paymentType = "normal";
+            if (latestDonation.subscriptionId || latestDonation.isRecurring) {
+              paymentType = "subscription";
+            }
+            await sendReceiptWhatsapp(phone, filePath, latestDonation.name, latestDonation.amount, paymentType);
             console.log("WhatsApp sent successfully!");
           } catch (error) {
             console.error("Error in receipt generation/WhatsApp:", error);
@@ -140,7 +144,11 @@ const webHookControler = {
         : `91${donation.mobile}`;
 
       console.log("Sending WhatsApp to:", phone);
-      await sendReceiptWhatsapp(phone, filePath, donation.name, donation.amount);
+      let paymentType = "normal";
+      if (donation.subscriptionId || donation.isRecurring) {
+        paymentType = "subscription";
+      }
+      await sendReceiptWhatsapp(phone, filePath, donation.name, donation.amount, paymentType);
       console.log("WhatsApp sent successfully!");
     } catch (error) {
       console.error("Error in receipt generation/WhatsApp:", error);
