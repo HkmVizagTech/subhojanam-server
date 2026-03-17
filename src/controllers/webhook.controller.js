@@ -88,7 +88,7 @@ const webHookControler = {
             if (existingDonation) {
               console.log("Using existing donation data for receipt generation");
               
-              if (existingDonation.amount >= 1000) {
+              if (existingDonation.amount >= 1) {
                 console.log("Donation qualifies for receipt (amount >= 1). Checking if already generated...");
                 
                 const latestDonation = await donationModle.findById(existingDonation._id);
@@ -126,7 +126,7 @@ const webHookControler = {
             break;
           }
 
-          if (donation.amount >= 1000) {
+          if (donation.amount >= 1) {
             console.log("Conditions met! Starting receipt generation (amount >= 1000)...");
             try {
               console.log("Starting receipt generation for donation:", donation._id);
@@ -178,7 +178,7 @@ const webHookControler = {
             { new: true }
           );
 
-          if (donation && donation.amount >= 1000) {
+          if (donation && donation.amount >= 1) {
             try {
               const filePath = await generateReceipt(donation);
               console.log("Receipt generated successfully at:", filePath);
