@@ -11,7 +11,7 @@ const adminController = {
       const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
 
       const totalDonationsResult = await donationModle.aggregate([
-        { $match: { status: "completed" } },
+  { $match: { status: "paid" } },
         { $group: { _id: null, total: { $sum: "$amount" }, count: { $sum: 1 } } }
       ]);
 
@@ -21,7 +21,7 @@ const adminController = {
       const lastMonthResult = await donationModle.aggregate([
         {
           $match: {
-            status: "completed",
+            status: "paid",
             createdAt: { $gte: lastMonth, $lte: endOfLastMonth }
           }
         },
@@ -30,13 +30,13 @@ const adminController = {
       const lastMonthTotal = lastMonthResult[0]?.total || 1;
 
       const totalDonors = await donationModle.distinct("email", {
-        status: "completed"
+  status: "paid"
       });
 
       const thisMonthResult = await donationModle.aggregate([
         {
           $match: {
-            status: "completed",
+            status: "paid",
             createdAt: { $gte: startOfMonth }
           }
         },
@@ -47,7 +47,7 @@ const adminController = {
       const todayResult = await donationModle.aggregate([
         {
           $match: {
-            status: "completed",
+            status: "paid",
             createdAt: { $gte: startOfToday }
           }
         },
@@ -94,7 +94,7 @@ const adminController = {
       const { limit = 5 } = req.query;
 
       const transactions = await donationModle
-        .find({ status: "completed" })
+  .find({ status: "paid" })
         .sort({ createdAt: -1 })
         .limit(parseInt(limit))
         .select("name email mobile amount createdAt status razorpayPaymentId");
@@ -124,7 +124,7 @@ const adminController = {
       const { limit = 5 } = req.query;
 
       const topDonors = await donationModle.aggregate([
-        { $match: { status: "completed" } },
+  { $match: { status: "paid" } },
         {
           $group: {
             _id: "$email",
@@ -161,7 +161,7 @@ const adminController = {
       const monthlyData = await donationModle.aggregate([
         {
           $match: {
-            status: "completed",
+            status: "paid",
             createdAt: {
               $gte: new Date(`${year}-01-01`),
               $lte: new Date(`${year}-12-31`)
@@ -308,7 +308,7 @@ const adminController = {
 
       const successfulCount = await donationModle.countDocuments({
         ...query,
-        status: "completed"
+  status: "paid"
       });
 
       res.status(200).json({
@@ -363,7 +363,7 @@ const adminController = {
     try {
       const { search = "", page = 1, limit = 20 } = req.query;
 
-      const matchQuery = { status: "completed" };
+  const matchQuery = { status: "paid" };
 
       if (search) {
         matchQuery.$or = [
@@ -424,19 +424,19 @@ const adminController = {
   getDonorStats: async (req, res) => {
     try {
       const totalDonors = await donationModle.distinct("email", {
-        status: "completed"
+  status: "paid"
       });
 
       const now = new Date();
       const thirtyDaysAgo = new Date(now.setDate(now.getDate() - 30));
 
       const activeThisMonth = await donationModle.distinct("email", {
-        status: "completed",
+  status: "paid",
         createdAt: { $gte: thirtyDaysAgo }
       });
 
       const totalContributions = await donationModle.aggregate([
-        { $match: { status: "completed" } },
+  { $match: { status: "paid" } },
         { $group: { _id: null, total: { $sum: "$amount" } } }
       ]);
 
@@ -459,7 +459,7 @@ const adminController = {
       const { email } = req.params;
 
       const donations = await donationModle
-        .find({ email, status: "completed" })
+  .find({ email, status: "paid" })
         .sort({ createdAt: -1 });
 
       if (donations.length === 0) {
@@ -503,7 +503,7 @@ const adminController = {
       const thisMonthResult = await donationModle.aggregate([
         {
           $match: {
-            status: "completed",
+            status: "paid",
             createdAt: { $gte: new Date(now.getFullYear(), now.getMonth(), 1) }
           }
         },
@@ -513,7 +513,7 @@ const adminController = {
       const lastMonthResult = await donationModle.aggregate([
         {
           $match: {
-            status: "completed",
+            status: "paid",
             createdAt: {
               $gte: lastMonth,
               $lt: new Date(now.getFullYear(), now.getMonth(), 1)
@@ -528,19 +528,19 @@ const adminController = {
       const growthRate = ((thisMonthTotal - lastMonthTotal) / lastMonthTotal * 100).toFixed(1);
 
       const avgDonationResult = await donationModle.aggregate([
-        { $match: { status: "completed" } },
+  { $match: { status: "paid" } },
         { $group: { _id: null, avg: { $avg: "$amount" } } }
       ]);
 
       const returningDonors = await donationModle.aggregate([
-        { $match: { status: "completed" } },
+  { $match: { status: "paid" } },
         { $group: { _id: "$email", count: { $sum: 1 } } },
         { $match: { count: { $gt: 1 } } },
         { $count: "returningCount" }
       ]);
 
       const totalDonors = await donationModle.distinct("email", {
-        status: "completed"
+  status: "paid"
       });
 
       const returningPercentage = totalDonors.length > 0
@@ -572,13 +572,13 @@ const adminController = {
       ];
 
       const totalDonations = await donationModle.countDocuments({
-        status: "completed"
+  status: "paid"
       });
 
       const rangeData = await Promise.all(
         ranges.map(async (range) => {
           const count = await donationModle.countDocuments({
-            status: "completed",
+            status: "paid",
             amount: { $gte: range.min, $lte: range.max }
           });
 
@@ -609,7 +609,7 @@ const adminController = {
       const { limit = 5 } = req.query;
 
       const locations = await donationModle.aggregate([
-        { $match: { status: "completed" } },
+  { $match: { status: "paid" } },
         {
           $group: {
             _id: "$location",
