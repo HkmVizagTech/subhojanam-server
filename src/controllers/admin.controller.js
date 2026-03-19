@@ -241,7 +241,7 @@ const adminController = {
       const totalTransactions = await donationModle.countDocuments(query);
 
       const formattedTransactions = transactions.map(txn => ({
-        _id: txn._id, // Add MongoDB _id for receipt download
+        _id: txn._id, 
         id: txn.razorpayPaymentId || `TXN${txn._id.toString().slice(-6).toUpperCase()}`,
         name: txn.name,
         email: txn.email,
@@ -250,6 +250,8 @@ const adminController = {
         date: txn.createdAt,
         status: txn.status,
         occasion: txn.occasion,
+        sevaDate: txn.sevaDate,
+        dob: txn.dob,
         isRecurring: txn.isRecurring,
         razorpayOrderId: txn.razorpayOrderId,
         razorpayPaymentId: txn.razorpayPaymentId,
