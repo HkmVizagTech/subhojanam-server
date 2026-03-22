@@ -1,10 +1,12 @@
-// UTM Analytics
-adminRouter.get("/utm-stats", adminController.getUtmStats);
+
 const express = require("express");
 const { adminController } = require("../controllers/admin.controller");
 const { adminAuth } = require("../middlewares/admin.auth.middleware");
 const { adminSubscriptionController } = require("../controllers/admin.subscription.controller");
 const adminRouter = express.Router();
+
+// UTM Analytics
+adminRouter.get("/utm-stats", adminController.getUtmStats);
 
 adminRouter.use(adminAuth);
 
