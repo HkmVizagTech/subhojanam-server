@@ -41,7 +41,8 @@ const paymentController = {
       mahaprasadam,
       prasadamAddressOption,
       prasadamAddress,
-      razorpayOrderId:order.id
+      razorpayOrderId:order.id,
+      ...(req.body.utm ? { utm: req.body.utm } : {})
     })
 
     return res.status(200).send({
@@ -159,7 +160,8 @@ console.log("Using PLAN ID:", planId);
       isRecurring: true,
       status: "created",
       failureCount: 0,
-      reviewAfter: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000) 
+      reviewAfter: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+      ...(req.body.utm ? { utm: req.body.utm } : {})
     });
 
     return res.status(200).send({

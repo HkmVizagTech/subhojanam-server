@@ -7,6 +7,7 @@ const donationSchema = new mongoose.Schema(
     mobile: { type: String, required: true },
   occasion: { type: String, required: false },
   sevaDate: { type: String, required: false },
+
   dob: { type: String, required: true },
     amount: { type: Number, required: true },
     razorpayOrderId: String,
@@ -32,6 +33,14 @@ const donationSchema = new mongoose.Schema(
       default: false,
     },
 
+     utm:{
+  source: String,
+  medium: String,
+  campaign: String,
+  content: String,
+  term: String
+},
+
     status: {
       type: String,
       enum: [
@@ -52,6 +61,7 @@ const donationSchema = new mongoose.Schema(
     reviewAfter: Date,
     lastPaymentDate: Date,
   },
+ 
   {
     timestamps: true,
     versionKey: false,
