@@ -10,8 +10,10 @@ const adminRouter = express.Router();
 adminRouter.get("/utm-stats", adminController.getUtmStats);
 
 
+
 adminRouter.post("/create-campaign", campaignController.createCampaign);
 adminRouter.get("/campaigns", campaignController.listCampaigns);
+adminRouter.delete("/campaigns/:id", campaignController.deleteCampaign);
 
 adminRouter.use(adminAuth);
 

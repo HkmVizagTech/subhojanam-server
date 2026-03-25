@@ -1,4 +1,20 @@
+
+
 const Campaign = require('../models/campaign.model');
+
+exports.deleteCampaign = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deleted = await Campaign.findByIdAndDelete(id);
+    if (!deleted) {
+      return res.status(404).json({ message: 'Campaign not found' });
+    }
+    res.json({ message: 'Campaign deleted' });
+  } catch (err) {
+    console.error('Delete campaign error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
 
 
 function normalizeCampaignName(name) {
