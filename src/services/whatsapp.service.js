@@ -1,35 +1,37 @@
 
-const sendPendingWhatsapp = async (phone, donorName, amount) => {
-  const axios = require("axios");
-  const FormData = require("form-data");
-  const form = new FormData();
-  form.append("token", process.env.FLAXXA_TOKEN);
-  form.append("phone", phone);
-  form.append("template_name", "subhojanam_ppending");
-  form.append("template_language", "en");
-  form.append(
-    "components",
-    JSON.stringify([
-      {
-        type: "body",
-        parameters: [
-          { type: "text", text: donorName },
-          { type: "text", text: String(amount) }
-        ]
-      }
-    ])
-  );
-  const response = await axios.post(
-    "https://wapi.flaxxa.com/api/v1/sendtemplatemessage",
-    form,
-    { headers: form.getHeaders() }
-  );
-  return response.data;
-};
 const axios = require("axios");
 const FormData = require("form-data");
 const fs = require("fs");
 require("dotenv").config();
+
+const sendPendingWhatsapp = async (phone, donorName, amount) => {
+  const axios = require("axios");
+
+  const response = await axios.post(
+    "https://wapi.flaxxa.com/api/v1/sendtemplatemessage",
+    {
+      token: process.env.FLAXXA_TOKEN,
+      phone,
+      template_name: "subhojanam_ppending",
+      template_language: "en",
+      components: [
+        {
+          type: "body",
+          parameters: [
+            { type: "text", text: String(donorName) },
+            { type: "text", text: String(amount) }
+          ]
+        }
+      ]
+    },
+    { headers: { "Content-Type": "application/json" } }
+  );
+
+  return response.data;
+};
+
+
+
 
 const sendReceiptWhatsapp = async (phone, filePath, donorName, amount, paymentType = "normal") => {
 
