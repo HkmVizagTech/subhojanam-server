@@ -19,7 +19,7 @@ const sendPendingWhatsapp = async (phone, donorName, amount) => {
             {
               type: "image",
               image: {
-                link: "https://storage.googleapis.com/subhojanam/WhatsApp%20Image%202026-03-26%20at%2014.16.42.jpeg"
+                link: "https://storage.googleapis.com/subhojanam/Avail%2080G%20Exemption%20(1).jpg"
               }
             }
           ]
