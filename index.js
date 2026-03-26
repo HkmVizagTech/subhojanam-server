@@ -9,6 +9,8 @@ const cors = require("cors");
 const { donationModle } = require("./src/models/donation.model");
 const { sendPendingWhatsapp } = require("./src/services/whatsapp.service");
 
+// const debugRouter = require("./src/routes/debug.routes");
+
 const app = express();
 
 app.use(cors({
@@ -31,6 +33,10 @@ app.use("/api/payment", paymentRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/admin", adminRouter);
 app.use("/public", express.static("public"));
+
+
+// app.use("/api/admin", debugRouter);
+// app.use("/api/admin", require("./src/routes/debug-utm-count.routes"));
 
 app.get("/api/internal/send-pending-reminders", async (req, res) => {
   if (req.headers["x-internal-secret"] !== process.env.INTERNAL_SECRET) {

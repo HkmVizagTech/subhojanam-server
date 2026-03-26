@@ -5,6 +5,9 @@ const adminController = {
 
   getUtmStats: async (req, res) => {
     try {
+      const paidWithUtm = await donationModle.find({ status: "paid" }, { utm: 1, amount: 1, name: 1, createdAt: 1 });
+      console.log("[DEBUG] Paid donations (with UTM):", JSON.stringify(paidWithUtm, null, 2));
+
       const stats = await donationModle.aggregate([
         { $match: { status: "paid" } },
         {
@@ -19,6 +22,7 @@ const adminController = {
         },
         { $sort: { totalAmount: -1 } }
       ]);
+      console.log("[DEBUG] UTM aggregation result:", JSON.stringify(stats, null, 2));
       res.status(200).json({ success: true, stats });
     } catch (error) {
       console.error("UTM stats error:", error);
