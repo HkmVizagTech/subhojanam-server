@@ -24,8 +24,8 @@ adminRouter.get("/dashboard/monthly-trends", adminController.getMonthlyTrends);
 
 adminRouter.get("/transactions", adminController.getAllTransactions);
 adminRouter.get("/transactions/stats", adminController.getTransactionStats);
-adminRouter.get("/transactions/:id", adminController.getTransactionById);
 adminRouter.get("/transactions/export", adminController.exportTransactions);
+adminRouter.get("/transactions/:id", adminController.getTransactionById);
 
 adminRouter.get("/donors", adminController.getAllDonors);
 adminRouter.get("/donors/stats", adminController.getDonorStats);

@@ -281,34 +281,37 @@ const adminController = {
 
       const totalTransactions = await donationModle.countDocuments(query);
 
-      const formattedTransactions = transactions.map(txn => ({
-        _id: txn._id, 
-        id: txn.razorpayPaymentId || `TXN${txn._id.toString().slice(-6).toUpperCase()}`,
-        name: txn.name,
-        email: txn.email,
-        mobile: txn.mobile,
-        amount: txn.amount,
-        date: txn.createdAt,
-        status: txn.status,
-        occasion: txn.occasion,
-        sevaDate: txn.sevaDate,
-        dob: txn.dob,
-        isRecurring: txn.isRecurring,
-        razorpayOrderId: txn.razorpayOrderId,
-        razorpayPaymentId: txn.razorpayPaymentId,
-        certificate: txn.certificate,
-        panNumber: txn.panNumber,
-        address: txn.address,
-        city: txn.city,
-        state: txn.state,
-        pincode: txn.pincode,
-        mahaprasadam: txn.mahaprasadam,
-        prasadamAddressOption: txn.prasadamAddressOption,
-        prasadamAddress: txn.prasadamAddress,
-        receiptNumber: txn.receiptNumber,
-        receiptGeneratedAt: txn.receiptGeneratedAt,
-        subscriptionId: txn.subscriptionId
-      }));
+      const formattedTransactions = transactions.map(txn => {
+        // Always include the original MongoDB _id as a string
+        return {
+          _id: txn._id ? txn._id.toString() : undefined,
+          id: txn.razorpayPaymentId || `TXN${txn._id ? txn._id.toString().slice(-6).toUpperCase() : ''}`,
+          name: txn.name,
+          email: txn.email,
+          mobile: txn.mobile,
+          amount: txn.amount,
+          date: txn.createdAt,
+          status: txn.status,
+          occasion: txn.occasion,
+          sevaDate: txn.sevaDate,
+          dob: txn.dob,
+          isRecurring: txn.isRecurring,
+          razorpayOrderId: txn.razorpayOrderId,
+          razorpayPaymentId: txn.razorpayPaymentId,
+          certificate: txn.certificate,
+          panNumber: txn.panNumber,
+          address: txn.address,
+          city: txn.city,
+          state: txn.state,
+          pincode: txn.pincode,
+          mahaprasadam: txn.mahaprasadam,
+          prasadamAddressOption: txn.prasadamAddressOption,
+          prasadamAddress: txn.prasadamAddress,
+          receiptNumber: txn.receiptNumber,
+          receiptGeneratedAt: txn.receiptGeneratedAt,
+          subscriptionId: txn.subscriptionId
+        };
+      });
 
       res.status(200).json({
         success: true,
@@ -372,9 +375,16 @@ const adminController = {
     try {
       const { id } = req.params;
 
+     
+      if (!id || !id.match(/^[0-9a-fA-F]{24}$/)) {
+        console.error(`Invalid transaction ID format: ${id}`);
+        return res.status(400).json({ success: false, message: "Invalid transaction ID format" });
+      }
+
       const transaction = await donationModle.findById(id);
 
       if (!transaction) {
+        console.error(`Transaction not found for ID: ${id}`);
         return res.status(404).json({ success: false, message: "Transaction not found" });
       }
 
@@ -397,8 +407,8 @@ const adminController = {
         }
       });
     } catch (error) {
-      console.error("Get transaction by ID error:", error);
-      res.status(500).json({ success: false, message: "Failed to fetch transaction" });
+      console.error(`Get transaction by ID error for ID: ${req.params.id}`, error);
+      res.status(500).json({ success: false, message: "Failed to fetch transaction", error: error.message });
     }
   },
 
