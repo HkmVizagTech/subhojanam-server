@@ -780,7 +780,7 @@ const adminController = {
 
   exportTransactions: async (req, res) => {
     try {
-      const { startDate, endDate, status = "all" } = req.query;
+      const { startDate, endDate, status = "all", mahaprasadam, certificate } = req.query;
 
       const query = {};
       if (status !== "all") query.status = status;
@@ -790,10 +790,21 @@ const adminController = {
         if (endDate) query.createdAt.$lte = new Date(endDate);
       }
 
+      // Add mahaprasadam filter if present
+      if (typeof mahaprasadam !== 'undefined') {
+        if (mahaprasadam === 'true') query.mahaprasadam = true;
+        if (mahaprasadam === 'false') query.mahaprasadam = false;
+      }
+
+      // Add certificate filter if present
+      if (typeof certificate !== 'undefined') {
+        if (certificate === 'true') query.certificate = true;
+        if (certificate === 'false') query.certificate = false;
+      }
+
       const transactions = await donationModle
         .find(query)
-        .sort({ createdAt: -1 })
-        .select("name email mobile amount createdAt status occasion razorpayPaymentId");
+        .sort({ createdAt: -1 });
 
       
       const headers = [
@@ -801,20 +812,54 @@ const adminController = {
         "Name",
         "Email",
         "Mobile",
-        "Amount",
         "Date",
+        "Amount",
         "Status",
-        "Occasion"
+        "Occasion",
+        "Seva Date",
+        "Date of Birth",
+        "80G Certificate",
+        "PAN Number",
+        "Address",
+        "City",
+        "State",
+        "Pincode",
+        "Prasadam Required",
+        "Prasadam Address Option",
+        "Prasadam Address",
+        "Receipt Number",
+        "Receipt Generated Date",
+        "Is Recurring",
+        "Subscription ID",
+        "Razorpay Order ID",
+        "Razorpay Payment ID"
       ];
       const rows = transactions.map(txn => [
         txn.razorpayPaymentId || `TXN${txn._id.toString().slice(-6).toUpperCase()}`,
         txn.name,
-        txn.email,
+        txn.email || '',
         txn.mobile,
-        txn.amount,
         txn.createdAt.toISOString(),
+        txn.amount,
         txn.status,
-        txn.occasion || ''
+        txn.occasion || '',
+        txn.sevaDate || '',
+        txn.dob || '',
+        txn.certificate ? 'Yes' : 'No',
+        txn.panNumber || '',
+        txn.address || '',
+        txn.city || '',
+        txn.state || '',
+        txn.pincode || '',
+        txn.mahaprasadam ? 'Yes' : 'No',
+        txn.prasadamAddressOption || '',
+        txn.prasadamAddress || '',
+        txn.receiptNumber || '',
+        txn.receiptGeneratedAt ? txn.receiptGeneratedAt.toISOString() : '',
+        txn.isRecurring ? 'Yes' : 'No',
+        txn.subscriptionId || '',
+        txn.razorpayOrderId || '',
+        txn.razorpayPaymentId || ''
       ]);
 
       
