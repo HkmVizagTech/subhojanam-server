@@ -1,7 +1,8 @@
 const crypto = require("crypto");
 const { donationModle } = require("../models/donation.model");
-const { generateReceipt } = require("../services/receipt.service");
-const { sendReceiptWhatsapp } = require("../services/whatsapp.service");
+const receiptService = require("../services/receipt.service");
+const whatsappService = require("../services/whatsapp.service");
+const externalDonationService = require("../services/externalDonation.service");
 const webHookControler = {
   webhook: async (req, res) => {
     try {
@@ -96,8 +97,22 @@ const webHookControler = {
                 if (latestDonation && !latestDonation.receiptNumber) {
                   console.log("Receipt not yet generated. Generating now...");
                   
-                  try {
-                    const filePath = await generateReceipt(latestDonation);
+                    try {
+                     
+                      let apiResponse = null;
+                      try {
+                        apiResponse = await externalDonationService.sendToExternalApi(latestDonation, payment);
+                        console.log('Webhook: external API returned for latestDonation', latestDonation._id, apiResponse && Object.keys(apiResponse));
+                        await donationModle.findByIdAndUpdate(latestDonation._id, {
+                          $set: { externalApiResponse: apiResponse, externalApiSentAt: new Date() }
+                        });
+                        console.log('Webhook: externalApiResponse persisted for donation', latestDonation._id);
+                      } catch (apiErr) {
+                        console.error('External API error (non-fatal):', apiErr.message || apiErr);
+                      }
+
+                      console.log('Webhook: calling generateReceipt with apiResponse keys:', apiResponse ? Object.keys(apiResponse) : null);
+                      const filePath = await receiptService.generateReceipt(latestDonation, apiResponse);
                     console.log("Receipt generated successfully at:", filePath);
 
                     const phone = latestDonation.mobile.startsWith("91")
@@ -109,10 +124,14 @@ const webHookControler = {
                     if (latestDonation.subscriptionId || latestDonation.isRecurring) {
                       paymentType = "subscription";
                     }
-                    await sendReceiptWhatsapp(phone, filePath, latestDonation.name, latestDonation.amount, paymentType); 
+                    await whatsappService.sendReceiptWhatsapp(phone, filePath, latestDonation.name, latestDonation.amount, paymentType); 
                     console.log("WhatsApp sent successfully!");
                   } catch (error) {
                     console.error("Error in receipt generation/WhatsApp:", error);
+                    await donationModle.findByIdAndUpdate(latestDonation._id, {
+                      $inc: { receiptGenerationAttempts: 1 },
+                      $set: { receiptGenerationLastError: String(error.message || error) }
+                    });
                   }
                 } else if (latestDonation && latestDonation.receiptNumber) {
                   console.log("Receipt already generated. Receipt number:", latestDonation.receiptNumber);
@@ -128,9 +147,23 @@ const webHookControler = {
 
           if (donation.amount >= 1) {
             console.log("Conditions met! Starting receipt generation (amount >= 1000)...");
-            try {
+              try {
+
+              let apiResponse = null;
+              try {
+                apiResponse = await externalDonationService.sendToExternalApi(donation, payment);
+                console.log('Webhook: external API returned for donation', donation._id, apiResponse && Object.keys(apiResponse));
+                await donationModle.findByIdAndUpdate(donation._id, {
+                  $set: { externalApiResponse: apiResponse, externalApiSentAt: new Date() }
+                });
+                console.log('Webhook: externalApiResponse persisted for donation', donation._id);
+              } catch (apiErr) {
+                console.error('External API error (non-fatal):', apiErr.message || apiErr);
+              }
+
               console.log("Starting receipt generation for donation:", donation._id);
-              const filePath = await generateReceipt(donation);
+              console.log('Webhook: calling generateReceipt with apiResponse keys:', apiResponse ? Object.keys(apiResponse) : null);
+              const filePath = await receiptService.generateReceipt(donation, apiResponse);
               console.log("Receipt generated successfully at:", filePath);
 
               const phone = donation.mobile.startsWith("91")
@@ -142,10 +175,14 @@ const webHookControler = {
               if (donation.subscriptionId || donation.isRecurring) {
                 paymentType = "subscription";
               }
-              await sendReceiptWhatsapp(phone, filePath, donation.name, donation.amount, paymentType);
+              await whatsappService.sendReceiptWhatsapp(phone, filePath, donation.name, donation.amount, paymentType);
               console.log("WhatsApp sent successfully!");
             } catch (error) {
               console.error("Error in receipt generation/WhatsApp:", error);
+              await donationModle.findByIdAndUpdate(donation._id, {
+                $inc: { receiptGenerationAttempts: 1 },
+                $set: { receiptGenerationLastError: String(error.message || error) }
+              });
             }
           } else {
             console.log("Conditions NOT met for receipt generation");

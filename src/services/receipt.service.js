@@ -6,7 +6,7 @@ const { settingsModel } = require("../models/settings.model");
 const { donationModle } = require("../models/donation.model");
 const numberToWords = require("number-to-words");
 
-const generateReceipt = async (donation) => {
+const generateReceipt = async (donation, apiResponse = null) => {
   try {
     console.log("Receipt generation started for donation:", donation._id);
     
@@ -36,7 +36,27 @@ const generateReceipt = async (donation) => {
 
   const templatePath = path.join(__dirname, "../templates/receipt.ejs");
 
-  const formattedReceiptNumber = `HKMI|${new Date().getFullYear()}|D/VSP|${String(receiptNumber).padStart(5, '0')}`;
+  // If caller didn't pass apiResponse, try to read any stored externalApiResponse on the donation
+  let apiResp = apiResponse;
+  if (!apiResp) {
+    if (donation.externalApiResponse) apiResp = donation.externalApiResponse;
+    else {
+      try {
+        const fresh = await donationModle.findById(donation._id).select('externalApiResponse').lean();
+        if (fresh && fresh.externalApiResponse) apiResp = fresh.externalApiResponse;
+      } catch (e) {
+        console.warn('Could not load externalApiResponse from DB:', e.message || e);
+      }
+    }
+  }
+
+  // Prefer external API receipt number when provided (useful when external system issues the official receipt)
+  const formattedReceiptNumber = apiResp && apiResp.ReceiptNumber
+    ? apiResp.ReceiptNumber
+    : `HKMI|${new Date().getFullYear()}|D/VSP|${String(receiptNumber).padStart(5, '0')}`;
+
+  console.log('Receipt Service: using receiptNumber:', formattedReceiptNumber, 'apiResp present:', !!apiResp);
+  if (apiResp) console.log('Receipt Service: apiResp sample keys:', Object.keys(apiResp));
   const receiptDate = new Date().toLocaleDateString("en-GB");
 
   const address = `${donation.address}, ${donation.city}, ${donation.state} - ${donation.pincode}`;
@@ -53,6 +73,7 @@ const generateReceipt = async (donation) => {
 
   const amountWords = numberToWords.toWords(donation.amount).toUpperCase() + " RUPEES ONLY";
 
+  console.log('Receipt Service: final apiResp passed to template present:', !!apiResp);
   const html = await ejs.renderFile(templatePath, {
     receiptNumber: formattedReceiptNumber,
     receiptDate,
@@ -70,9 +91,14 @@ const generateReceipt = async (donation) => {
     paymentDate: receiptDate,
     logoBase64,
     stampBase64
+  ,
+  externalApiResponse: apiResp
   });
 
-  const browser = await puppeteer.launch({
+  const execPath = process.env.CHROME_PATH || 
+    (process.platform === 'darwin' ? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' : undefined);
+
+  const launchOptions = {
     headless: true,
     args: [
       "--no-sandbox",
@@ -82,7 +108,11 @@ const generateReceipt = async (donation) => {
       "--disable-software-rasterizer",
       "--disable-extensions",
     ]
-  });
+  };
+  if (execPath) launchOptions.executablePath = execPath;
+
+  const browser = await puppeteer.launch(launchOptions);
+
 
   const page = await browser.newPage();
 

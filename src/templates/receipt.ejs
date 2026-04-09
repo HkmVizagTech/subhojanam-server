@@ -220,6 +220,17 @@
         <p style="margin-left: 55px;">Date : <%= paymentDate %></p>
       </div>
 
+      <% if (externalApiResponse) { %>
+      <div style="margin-top: 12px; padding: 10px; border: 1px solid #ddd; background: #f9f9f9;">
+        <p class="bold">External API Response:</p>
+        <% for (const k in externalApiResponse) { %>
+          <p style="font-size:12px;"><strong><%= k %>:</strong>
+            <%= (externalApiResponse[k] && typeof externalApiResponse[k] === 'object') ? JSON.stringify(externalApiResponse[k]) : (externalApiResponse[k] != null ? externalApiResponse[k] : '') %>
+          </p>
+        <% } %>
+      </div>
+      <% } %>
+
       <div class="flex-gap">
         <p>Bank :</p>
         <!-- <p class="ml-80">Enrolled by <span class="bold">RVRD</span></p> -->

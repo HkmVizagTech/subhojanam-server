@@ -10,9 +10,9 @@ const paymentController = {
     try {
         const {  name, email, mobile, occasion, sevaDate, dob, amount, certificate, panNumber, address, city, state, pincode, mahaprasadam, prasadamAddressOption, prasadamAddress } = req.body;
 
-  if (!amount || amount < 1) {
-  return res.status(400).send("Invalid amount");
-}
+      if (!amount || amount < 1) {
+        return res.status(400).send("Invalid amount");
+      }
 
 
     const options = {

@@ -26,6 +26,10 @@ const donationSchema = new mongoose.Schema(
 
     receiptNumber: { type: Number },
     receiptGeneratedAt: { type: Date },
+  externalApiResponse: { type: Object },
+  externalApiSentAt: { type: Date },
+  receiptGenerationAttempts: { type: Number, default: 0 },
+  receiptGenerationLastError: { type: String },
 
     subscriptionId: String,
     isRecurring: {
