@@ -8,7 +8,7 @@ const donationSchema = new mongoose.Schema(
   occasion: { type: String, required: false },
   sevaDate: { type: String, required: false },
 
-  dob: { type: String, required: true },
+  dob: { type: String, required: false },
     amount: { type: Number, required: true },
     razorpayOrderId: String,
     razorpayPaymentId: String,
