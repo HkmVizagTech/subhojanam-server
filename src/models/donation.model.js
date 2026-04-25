@@ -28,6 +28,9 @@ const donationSchema = new mongoose.Schema(
     receiptGeneratedAt: { type: Date },
   externalApiResponse: { type: Object },
   externalApiSentAt: { type: Date },
+  metaPurchaseResponse: { type: Object },
+  metaPurchaseSentAt: { type: Date },
+  metaPurchaseLastError: { type: String },
   receiptGenerationAttempts: { type: Number, default: 0 },
   receiptGenerationLastError: { type: String },
 

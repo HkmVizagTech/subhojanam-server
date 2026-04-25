@@ -3,6 +3,7 @@ const { donationModle } = require("../models/donation.model");
 const receiptService = require("../services/receipt.service");
 const whatsappService = require("../services/whatsapp.service");
 const externalDonationService = require("../services/externalDonation.service");
+const metaConversionService = require("../services/metaConversion.service");
 const webHookControler = {
   webhook: async (req, res) => {
     try {
@@ -77,6 +78,27 @@ const webHookControler = {
             console.log("Donation ID:", donation._id);
             console.log("Donation certificate:", donation.certificate);
             console.log("Donation amount:", donation.amount);
+
+            try {
+              const metaResponse = await metaConversionService.sendPurchaseEvent(donation, payment);
+              const metaUpdate = metaResponse?.skipped
+                ? {
+                    metaPurchaseResponse: metaResponse,
+                    metaPurchaseLastError: metaResponse.reason || "Meta Purchase event skipped"
+                  }
+                : {
+                    metaPurchaseResponse: metaResponse,
+                    metaPurchaseSentAt: new Date(),
+                    metaPurchaseLastError: null
+                  };
+              await donationModle.findByIdAndUpdate(donation._id, { $set: metaUpdate });
+              console.log("Meta Purchase event processed for donation:", donation._id);
+            } catch (metaErr) {
+              console.error("Meta Purchase event error (non-fatal):", metaErr.response?.data || metaErr.message || metaErr);
+              await donationModle.findByIdAndUpdate(donation._id, {
+                $set: { metaPurchaseLastError: String(metaErr.response?.data?.error?.message || metaErr.message || metaErr) }
+              });
+            }
           } else {
             console.log("Failed to update - checking current status again...");
             const recheckDonation = await donationModle.findOne({ razorpayOrderId: payment.order_id });
