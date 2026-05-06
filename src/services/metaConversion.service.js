@@ -31,6 +31,10 @@ function buildUserData(donation) {
 
   if (emailHash) userData.em = [emailHash];
   if (phoneHash) userData.ph = [phoneHash];
+  if (donation.fbp) userData.fbp = donation.fbp;
+  if (donation.fbc) userData.fbc = donation.fbc;
+  if (donation.clientIp) userData.client_ip_address = donation.clientIp;
+  if (donation.userAgent) userData.client_user_agent = donation.userAgent;
 
   return userData;
 }

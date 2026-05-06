@@ -5,6 +5,27 @@ const path = require("path");
 const fs = require("fs");
 const { generateReceipt } = require("../services/receipt.service");
 require("dotenv").config()
+
+function getClientIp(req) {
+  const forwardedFor = req.headers["x-forwarded-for"];
+  if (typeof forwardedFor === "string" && forwardedFor.trim()) {
+    return forwardedFor.split(",")[0].trim();
+  }
+
+  return req.ip || req.socket?.remoteAddress || "";
+}
+
+function getMetaTracking(req) {
+  const tracking = req.body.tracking || {};
+
+  return {
+    fbp: typeof tracking.fbp === "string" ? tracking.fbp : "",
+    fbc: typeof tracking.fbc === "string" ? tracking.fbc : "",
+    clientIp: getClientIp(req),
+    userAgent: req.get("user-agent") || "",
+  };
+}
+
 const paymentController = {
   createOrder : async(req,res)=>{
     try {
@@ -41,6 +62,7 @@ const paymentController = {
       mahaprasadam,
       prasadamAddressOption,
       prasadamAddress,
+      ...getMetaTracking(req),
       razorpayOrderId:order.id,
       ...(req.body.utm ? { utm: req.body.utm } : {})
     })
@@ -161,6 +183,7 @@ console.log("Using PLAN ID:", planId);
       status: "created",
       failureCount: 0,
       reviewAfter: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+      ...getMetaTracking(req),
       ...(req.body.utm ? { utm: req.body.utm } : {})
     });
 

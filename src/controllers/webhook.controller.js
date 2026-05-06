@@ -237,9 +237,32 @@ const webHookControler = {
             { new: true }
           );
 
+          if (donation) {
+            try {
+              const metaResponse = await metaConversionService.sendPurchaseEvent(donation, payment);
+              const metaUpdate = metaResponse?.skipped
+                ? {
+                    metaPurchaseResponse: metaResponse,
+                    metaPurchaseLastError: metaResponse.reason || "Meta Purchase event skipped"
+                  }
+                : {
+                    metaPurchaseResponse: metaResponse,
+                    metaPurchaseSentAt: new Date(),
+                    metaPurchaseLastError: null
+                  };
+              await donationModle.findByIdAndUpdate(donation._id, { $set: metaUpdate });
+              console.log("Meta subscription Purchase event processed for donation:", donation._id);
+            } catch (metaErr) {
+              console.error("Meta subscription Purchase event error (non-fatal):", metaErr.response?.data || metaErr.message || metaErr);
+              await donationModle.findByIdAndUpdate(donation._id, {
+                $set: { metaPurchaseLastError: String(metaErr.response?.data?.error?.message || metaErr.message || metaErr) }
+              });
+            }
+          }
+
           if (donation && donation.amount >= 1) {
             try {
-              const filePath = await generateReceipt(donation);
+              const filePath = await receiptService.generateReceipt(donation);
               console.log("Receipt generated successfully at:", filePath);
 
               const phone = donation.mobile.startsWith("91")
@@ -247,7 +270,7 @@ const webHookControler = {
                 : `91${donation.mobile}`;
 
               console.log("Sending WhatsApp to:", phone);
-              await sendReceiptWhatsapp(phone, filePath, donation.name, donation.amount, "subscription");
+              await whatsappService.sendReceiptWhatsapp(phone, filePath, donation.name, donation.amount, "subscription");
               console.log("WhatsApp sent successfully!");
             } catch (error) {
               console.error("Error in subscription receipt/WhatsApp:", error);
