@@ -14,7 +14,7 @@ const { sendPendingWhatsapp } = require("./src/services/whatsapp.service");
 const app = express();
 
 app.use(cors({
-  origin: ["https://annadan.harekrishnavizag.org"],
+  origin: ["https://annadan.harekrishnavizag.org", "http://localhost:5173"],
   methods: ["GET", "POST", "PUT", "DELETE"],
   credentials: true
 }));
