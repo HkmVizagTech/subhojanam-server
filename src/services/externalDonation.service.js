@@ -53,11 +53,11 @@ const sendToExternalApi = async (donation, payment = {}) => {
     };
 
     const resp = await axios.post(EXTERNAL_API_URL, payload, { headers, timeout: 10000 });
-    // Log a compact version of the response
+   
     try {
       console.log('External API: response status for donation', donation._id || donation.name, resp.status);
       console.log('External API: response keys for donation', donation._id || donation.name, Object.keys(resp.data || {}));
-      // If typical fields exist, log them
+     
       if (resp.data && (resp.data.ReceiptNumber || resp.data.DonationId)) {
         console.log('External API: important fields:', {
           ReceiptNumber: resp.data.ReceiptNumber,
@@ -71,7 +71,7 @@ const sendToExternalApi = async (donation, payment = {}) => {
 
     return resp.data;
   } catch (error) {
-    // Improve error logs: include status and response body when available
+   
     if (error.response) {
       try {
         console.error('External API call failed with status', error.response.status, 'body keys:', Object.keys(error.response.data || {}));
@@ -82,7 +82,7 @@ const sendToExternalApi = async (donation, payment = {}) => {
     } else {
       console.error('External API call failed:', error.message || error);
     }
-    // Rethrow to let caller decide whether to treat as fatal
+  
     throw error;
   }
 };

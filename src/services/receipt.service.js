@@ -36,7 +36,7 @@ const generateReceipt = async (donation, apiResponse = null) => {
 
   const templatePath = path.join(__dirname, "../templates/receipt.ejs");
 
-  // If caller didn't pass apiResponse, try to read any stored externalApiResponse on the donation
+
   let apiResp = apiResponse;
   if (!apiResp) {
     if (donation.externalApiResponse) apiResp = donation.externalApiResponse;
@@ -50,7 +50,7 @@ const generateReceipt = async (donation, apiResponse = null) => {
     }
   }
 
-  // Prefer external API receipt number when provided (useful when external system issues the official receipt)
+  
   const formattedReceiptNumber = apiResp && apiResp.ReceiptNumber
     ? apiResp.ReceiptNumber
     : `HKMI|${new Date().getFullYear()}|D/VSP|${String(receiptNumber).padStart(5, '0')}`;
