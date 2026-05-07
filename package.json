@@ -26,7 +26,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node index.js",
-    "dev": "nodemon index.js",
+    "dev": "NODE_ENV=development nodemon index.js",
+    "dev:local": "NODE_ENV=development MONGOURL=mongodb://localhost:27017/subhojanam-local node index.js",
     "postinstall": "node node_modules/puppeteer/install.mjs"
   },
   "repository": {
