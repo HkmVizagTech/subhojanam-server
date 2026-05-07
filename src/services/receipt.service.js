@@ -26,7 +26,7 @@ const generateReceipt = async (donation, apiResponse = null) => {
       });
     }
 
-    // ✅ FIX: Define apiResp FIRST, before using it
+    // Define apiResp FIRST
     let apiResp = apiResponse;
     if (!apiResp) {
       if (donation.externalApiResponse) apiResp = donation.externalApiResponse;
@@ -47,50 +47,43 @@ const generateReceipt = async (donation, apiResponse = null) => {
       }
     }
 
-    // ✅ NOW use apiResp (it's defined)
+    // Determine receipt number
     let receiptNumber;
+    let formattedReceiptNumber;
+
     if (apiResp?.ReceiptNumber) {
+      // Use API receipt number (already in correct format)
       receiptNumber = apiResp.ReceiptNumber;
+      formattedReceiptNumber = receiptNumber;
       console.log("✅ Using API receipt number:", receiptNumber);
+      // DO NOT increment settings counter for API receipts
     } else {
-      receiptNumber =
+      // Use local receipt number (fallback)
+      const localNumber =
         settings.receiptSettings.currentReceiptNumber ||
         settings.receiptSettings.startNumber;
-      console.log("⚠️ Using local receipt number:", receiptNumber);
+      receiptNumber = localNumber;
+      formattedReceiptNumber = `HKMI|${new Date().getFullYear()}|D/VSP|${String(localNumber).padStart(5, "0")}`;
+      console.log("⚠️ Using local receipt number:", formattedReceiptNumber);
 
-      // Only increment local counter if we used a local number
+      // Only increment local counter when using local numbers
       await settingsModel.findByIdAndUpdate(settings._id, {
-        $set: { "receiptSettings.currentReceiptNumber": receiptNumber + 1 },
+        $set: { "receiptSettings.currentReceiptNumber": localNumber + 1 },
       });
     }
 
-    // Save receipt number to donation
+    // Save receipt number to donation (always as string)
     await donationModle.findByIdAndUpdate(donation._id, {
-      receiptNumber: receiptNumber,
+      receiptNumber: String(receiptNumber),
       receiptGeneratedAt: new Date(),
     });
-
-    const templatePath = path.join(__dirname, "../templates/receipt.ejs");
-
-    const formattedReceiptNumber =
-      apiResp && apiResp.ReceiptNumber
-        ? apiResp.ReceiptNumber
-        : `HKMI|${new Date().getFullYear()}|D/VSP|${String(receiptNumber).padStart(5, "0")}`;
 
     console.log(
       "Receipt Service: using receiptNumber:",
       formattedReceiptNumber,
-      "apiResp present:",
-      !!apiResp,
     );
-    if (apiResp)
-      console.log(
-        "Receipt Service: apiResp sample keys:",
-        Object.keys(apiResp),
-      );
 
     const receiptDate = new Date().toLocaleDateString("en-GB");
-
     const address = `${donation.address || ""}, ${donation.city || ""}, ${donation.state || ""} - ${donation.pincode || ""}`;
 
     const logoBase64 = fs.readFileSync(
@@ -106,10 +99,7 @@ const generateReceipt = async (donation, apiResponse = null) => {
     const amountWords =
       numberToWords.toWords(donation.amount).toUpperCase() + " RUPEES ONLY";
 
-    console.log(
-      "Receipt Service: final apiResp passed to template present:",
-      !!apiResp,
-    );
+    const templatePath = path.join(__dirname, "../templates/receipt.ejs");
     const html = await ejs.renderFile(templatePath, {
       receiptNumber: formattedReceiptNumber,
       receiptDate,

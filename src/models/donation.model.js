@@ -5,14 +5,14 @@ const donationSchema = new mongoose.Schema(
     name: { type: String, required: true },
     email: { type: String, required: false },
     mobile: { type: String, required: true },
-  occasion: { type: String, required: false },
-  sevaDate: { type: String, required: false },
+    occasion: { type: String, required: false },
+    sevaDate: { type: String, required: false },
 
-  dob: { type: String, required: false },
+    dob: { type: String, required: false },
     amount: { type: Number, required: true },
     razorpayOrderId: String,
     razorpayPaymentId: String,
-    
+
     certificate: { type: Boolean, default: false },
     panNumber: String,
     address: String,
@@ -21,22 +21,26 @@ const donationSchema = new mongoose.Schema(
     pincode: String,
 
     mahaprasadam: { type: Boolean, default: false },
-    prasadamAddressOption: { type: String, enum: ['same', 'different'], default: 'same' },
+    prasadamAddressOption: {
+      type: String,
+      enum: ["same", "different"],
+      default: "same",
+    },
     prasadamAddress: String,
 
-    receiptNumber: { type: Number },
+    receiptNumber: { type: String },
     receiptGeneratedAt: { type: Date },
-  externalApiResponse: { type: Object },
-  externalApiSentAt: { type: Date },
-  fbp: { type: String },
-  fbc: { type: String },
-  clientIp: { type: String },
-  userAgent: { type: String },
-  metaPurchaseResponse: { type: Object },
-  metaPurchaseSentAt: { type: Date },
-  metaPurchaseLastError: { type: String },
-  receiptGenerationAttempts: { type: Number, default: 0 },
-  receiptGenerationLastError: { type: String },
+    externalApiResponse: { type: Object },
+    externalApiSentAt: { type: Date },
+    fbp: { type: String },
+    fbc: { type: String },
+    clientIp: { type: String },
+    userAgent: { type: String },
+    metaPurchaseResponse: { type: Object },
+    metaPurchaseSentAt: { type: Date },
+    metaPurchaseLastError: { type: String },
+    receiptGenerationAttempts: { type: Number, default: 0 },
+    receiptGenerationLastError: { type: String },
 
     subscriptionId: String,
     isRecurring: {
@@ -44,13 +48,13 @@ const donationSchema = new mongoose.Schema(
       default: false,
     },
 
-     utm:{
-  source: String,
-  medium: String,
-  campaign: String,
-  content: String,
-  term: String
-},
+    utm: {
+      source: String,
+      medium: String,
+      campaign: String,
+      content: String,
+      term: String,
+    },
 
     status: {
       type: String,
@@ -76,7 +80,7 @@ const donationSchema = new mongoose.Schema(
     reviewAfter: Date,
     lastPaymentDate: Date,
   },
- 
+
   {
     timestamps: true,
     versionKey: false,
