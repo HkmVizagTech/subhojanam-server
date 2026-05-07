@@ -117,11 +117,18 @@ const requiredEnvVars = ["MONGOURL", "RAZORPAY_KEY_ID", "RAZORPAY_KEY_SECRET"];
 const missingEnvVars = requiredEnvVars.filter((envVar) => !process.env[envVar]);
 
 if (missingEnvVars.length > 0) {
-  console.error(
-    `❌ Missing required environment variables: ${missingEnvVars.join(", ")}`,
+  console.warn(
+    `⚠️ Missing required environment variables: ${missingEnvVars.join(", ")}`,
   );
-  console.error(`Please check your ${envFile} file`);
-  process.exit(1);
+  console.warn(
+    `Will attempt to use Cloud Run environment variables if available`,
+  );
+
+  // Only exit if we're in development mode
+  if (process.env.NODE_ENV === "development") {
+    console.error("Exiting because running in development mode");
+    process.exit(1);
+  }
 }
 
 console.log(`🔧 Environment: ${process.env.NODE_ENV || "production"}`);
