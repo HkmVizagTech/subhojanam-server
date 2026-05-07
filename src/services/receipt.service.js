@@ -26,8 +26,28 @@ const generateReceipt = async (donation, apiResponse = null) => {
       });
     }
 
-    // const receiptNumber = settings.receiptSettings.currentReceiptNumber || settings.receiptSettings.startNumber;
-    // Determine receipt number - PRIORITIZE API RESPONSE
+    // ✅ FIX: Define apiResp FIRST, before using it
+    let apiResp = apiResponse;
+    if (!apiResp) {
+      if (donation.externalApiResponse) apiResp = donation.externalApiResponse;
+      else {
+        try {
+          const fresh = await donationModle
+            .findById(donation._id)
+            .select("externalApiResponse")
+            .lean();
+          if (fresh && fresh.externalApiResponse)
+            apiResp = fresh.externalApiResponse;
+        } catch (e) {
+          console.warn(
+            "Could not load externalApiResponse from DB:",
+            e.message || e,
+          );
+        }
+      }
+    }
+
+    // ✅ NOW use apiResp (it's defined)
     let receiptNumber;
     if (apiResp?.ReceiptNumber) {
       receiptNumber = apiResp.ReceiptNumber;
@@ -50,36 +70,7 @@ const generateReceipt = async (donation, apiResponse = null) => {
       receiptGeneratedAt: new Date(),
     });
 
-    await settingsModel.findByIdAndUpdate(settings._id, {
-      $set: { "receiptSettings.currentReceiptNumber": receiptNumber + 1 },
-    });
-
-    await donationModle.findByIdAndUpdate(donation._id, {
-      receiptNumber: receiptNumber,
-      receiptGeneratedAt: new Date(),
-    });
-
     const templatePath = path.join(__dirname, "../templates/receipt.ejs");
-
-    let apiResp = apiResponse;
-    if (!apiResp) {
-      if (donation.externalApiResponse) apiResp = donation.externalApiResponse;
-      else {
-        try {
-          const fresh = await donationModle
-            .findById(donation._id)
-            .select("externalApiResponse")
-            .lean();
-          if (fresh && fresh.externalApiResponse)
-            apiResp = fresh.externalApiResponse;
-        } catch (e) {
-          console.warn(
-            "Could not load externalApiResponse from DB:",
-            e.message || e,
-          );
-        }
-      }
-    }
 
     const formattedReceiptNumber =
       apiResp && apiResp.ReceiptNumber
@@ -97,9 +88,10 @@ const generateReceipt = async (donation, apiResponse = null) => {
         "Receipt Service: apiResp sample keys:",
         Object.keys(apiResp),
       );
+
     const receiptDate = new Date().toLocaleDateString("en-GB");
 
-    const address = `${donation.address}, ${donation.city}, ${donation.state} - ${donation.pincode}`;
+    const address = `${donation.address || ""}, ${donation.city || ""}, ${donation.state || ""} - ${donation.pincode || ""}`;
 
     const logoBase64 = fs.readFileSync(
       path.join(__dirname, "../public/hkmi-logo.jpg"),
@@ -138,6 +130,7 @@ const generateReceipt = async (donation, apiResponse = null) => {
       externalApiResponse: apiResp,
     });
 
+    // Launch puppeteer
     const execPath =
       process.env.CHROME_PATH ||
       (process.platform === "darwin"
@@ -158,13 +151,10 @@ const generateReceipt = async (donation, apiResponse = null) => {
     if (execPath) launchOptions.executablePath = execPath;
 
     const browser = await puppeteer.launch(launchOptions);
-
     const page = await browser.newPage();
-
     await page.setContent(html, { waitUntil: "load" });
 
     const receiptsDir = path.join(__dirname, "../../receipts");
-
     if (!fs.existsSync(receiptsDir)) {
       fs.mkdirSync(receiptsDir);
     }
