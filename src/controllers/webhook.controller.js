@@ -268,6 +268,7 @@ const webHookControler = {
               // Mark as complete with receiptGeneratedAt
               await donationModle.findByIdAndUpdate(donation._id, {
                 $set: { receiptGeneratedAt: new Date() },
+                webhookProcessed: true, // Ensure this is set to true
               });
 
               console.log(
@@ -291,7 +292,7 @@ const webHookControler = {
               donation.amount,
             );
             await donationModle.findByIdAndUpdate(donation._id, {
-              $set: { receiptGeneratedAt: new Date() },
+              $set: { receiptGeneratedAt: new Date(), webhookProcessed: true },
             });
           }
 

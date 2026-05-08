@@ -72,12 +72,6 @@ const generateReceipt = async (donation, apiResponse = null) => {
       });
     }
 
-    // Save receipt number to donation (always as string)
-    await donationModle.findByIdAndUpdate(donation._id, {
-      receiptNumber: formattedReceiptNumber,
-      receiptGeneratedAt: new Date(),
-    });
-
     console.log(
       "Receipt Service: using receiptNumber:",
       formattedReceiptNumber,
@@ -141,7 +135,7 @@ const generateReceipt = async (donation, apiResponse = null) => {
 
     const browser = await puppeteer.launch(launchOptions);
     const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: "load" });
+    await page.setContent(html, { waitUntil: "networkidle0", timeout: 30000 });
 
     // const receiptsDir = path.join(__dirname, "../../receipts");
     const receiptsDir = process.env.RECEIPTS_DIR || "/tmp/receipts";
@@ -168,6 +162,12 @@ const generateReceipt = async (donation, apiResponse = null) => {
 
     console.log("Closing browser...");
     await browser.close();
+
+    // Save receipt number to donation (always as string)
+    await donationModle.findByIdAndUpdate(donation._id, {
+      receiptNumber: formattedReceiptNumber,
+      receiptGeneratedAt: new Date(),
+    });
 
     console.log("Receipt PDF generated successfully!");
     return filePath;
