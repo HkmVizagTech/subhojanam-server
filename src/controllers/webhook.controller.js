@@ -44,21 +44,20 @@ const webHookControler = {
         case "payment.captured": {
           const payment = event.payload.payment.entity;
 
-          // ✅ Respond to Razorpay immediately — RIGHT HERE, before anything else
-          res.status(200).send("Webhook received");
-
-          // Everything below runs AFTER response is sent
+          // Don't respond early — process everything, Cloud Run timeout is now 300s
           try {
             let donation = await donationModle.findOne({
               razorpayOrderId: payment.order_id,
             });
 
-            if (!donation) return;
-            if (donation.receiptGeneratedAt) return;
+            if (!donation) return res.status(200).send("Donation not found");
+            if (donation.receiptGeneratedAt)
+              return res.status(200).send("Already processed");
             if (donation.webhookProcessed === true) {
               const stuckDuration =
                 (new Date() - new Date(donation.webhookProcessedAt)) / 1000;
-              if (stuckDuration < 120) return;
+              if (stuckDuration < 120)
+                return res.status(200).send("Already processing");
               await donationModle.findByIdAndUpdate(donation._id, {
                 $set: { webhookProcessed: false },
                 $unset: { webhookProcessedAt: "" },
@@ -79,80 +78,74 @@ const webHookControler = {
               { new: true },
             );
 
-            if (!donation) return;
+            if (!donation) return res.status(200).send("Update failed");
 
-            // Meta (non-blocking)
-            try {
-              const metaResponse =
-                await metaConversionService.sendPurchaseEvent(
+            // Meta (non-blocking, don't await)
+            metaConversionService
+              .sendPurchaseEvent(donation, payment)
+              .then((metaResponse) =>
+                donationModle.findByIdAndUpdate(donation._id, {
+                  $set: {
+                    metaPurchaseResponse: metaResponse,
+                    metaPurchaseSentAt: new Date(),
+                    metaPurchaseLastError: null,
+                  },
+                }),
+              )
+              .catch((err) => console.error("⚠️ Meta error:", err.message));
+
+            if (donation.amount >= 1) {
+              let apiResponse = null;
+              try {
+                apiResponse = await externalDonationService.sendToExternalApi(
                   donation,
                   payment,
                 );
-              await donationModle.findByIdAndUpdate(donation._id, {
-                $set: {
-                  metaPurchaseResponse: metaResponse,
-                  metaPurchaseSentAt: new Date(),
-                  metaPurchaseLastError: null,
-                },
-              });
-            } catch (metaErr) {
-              console.error("⚠️ Meta error:", metaErr.message);
-            }
-
-            if (donation.amount >= 1) {
-              try {
-                let apiResponse = null;
-                try {
-                  apiResponse = await externalDonationService.sendToExternalApi(
-                    donation,
-                    payment,
-                  );
-                  await donationModle.findByIdAndUpdate(donation._id, {
-                    $set: {
-                      externalApiResponse: apiResponse,
-                      externalApiSentAt: new Date(),
-                      donorNumber: apiResponse?.DonorNumber || "",
-                    },
-                  });
-                } catch (apiErr) {
-                  console.error("⚠️ BCC API error:", apiErr.message);
-                }
-
-                const filePath = await receiptService.generateReceipt(
-                  donation,
-                  apiResponse,
-                );
-
-                let phone = donation.mobile.replace(/\D/g, "");
-                if (!phone.startsWith("91")) phone = `91${phone}`;
-
-                await whatsappService.sendReceiptWhatsapp(
-                  phone,
-                  filePath,
-                  donation.name,
-                  donation.amount,
-                  donation.subscriptionId || donation.isRecurring
-                    ? "subscription"
-                    : "normal",
-                );
-
-                console.log("🎉 Processing completed for:", donation._id);
-              } catch (error) {
-                console.error("❌ Receipt/WhatsApp error:", error.message);
                 await donationModle.findByIdAndUpdate(donation._id, {
-                  $inc: { receiptGenerationAttempts: 1 },
                   $set: {
-                    receiptGenerationLastError: String(error.message || error),
-                    webhookProcessed: false,
+                    externalApiResponse: apiResponse,
+                    externalApiSentAt: new Date(),
+                    donorNumber: apiResponse?.DonorNumber || "",
                   },
                 });
+                console.log("✅ BCC API done:", apiResponse?.ReceiptNumber);
+              } catch (apiErr) {
+                console.error("⚠️ BCC API error:", apiErr.message);
               }
-            }
-          } catch (err) {
-            console.error("❌ Webhook processing error:", err);
-          }
 
-          break; // ← break is still here, after the try/catch
+              // Generate PDF — this is the slow part, needs the 300s timeout
+              const filePath = await receiptService.generateReceipt(
+                donation,
+                apiResponse,
+              );
+              console.log("✅ PDF generated:", filePath);
+
+              let phone = donation.mobile.replace(/\D/g, "");
+              if (!phone.startsWith("91")) phone = `91${phone}`;
+              await whatsappService.sendReceiptWhatsapp(
+                phone,
+                filePath,
+                donation.name,
+                donation.amount,
+                donation.subscriptionId || donation.isRecurring
+                  ? "subscription"
+                  : "normal",
+              );
+              console.log("✅ WhatsApp sent");
+            }
+
+            return res.status(200).send("Webhook processed");
+          } catch (error) {
+            console.error("❌ Webhook error:", error.message);
+            await donationModle.findByIdAndUpdate(donation._id, {
+              $inc: { receiptGenerationAttempts: 1 },
+              $set: {
+                receiptGenerationLastError: String(error.message),
+                webhookProcessed: false,
+              },
+            });
+            return res.status(200).send("Webhook error - will retry");
+          }
         }
 
         case "subscription.activated": {
