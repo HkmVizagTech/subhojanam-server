@@ -136,6 +136,7 @@ const webHookControler = {
                   $set: {
                     externalApiResponse: apiResponse,
                     externalApiSentAt: new Date(),
+                    donorNumber: apiResponse?.DonorNumber || "",
                   },
                 });
               } catch (apiErr) {

@@ -230,11 +230,9 @@ const paymentController = {
 
       if (!donation.receiptNumber) {
         console.log("ERROR: Receipt number not set - not eligible for receipt");
-        return res
-          .status(404)
-          .json({
-            message: "This donation does not have a receipt number assigned.",
-          });
+        return res.status(404).json({
+          message: "This donation does not have a receipt number assigned.",
+        });
       }
 
       const receiptData = {
@@ -252,7 +250,10 @@ const paymentController = {
         razorpayPaymentId: donation.razorpayPaymentId,
         receiptGeneratedAt: donation.receiptGeneratedAt,
         createdAt: donation.createdAt,
-        donorNumber: donation.externalApiResponse?.DonorNumber || "", // ✅ ADD THIS
+        donorNumber:
+          donation.donorNumber ||
+          donation.externalApiResponse?.DonorNumber ||
+          "", // ✅ ADD THIS
       };
 
       console.log(

@@ -29,6 +29,7 @@ const donationSchema = new mongoose.Schema(
     prasadamAddress: String,
 
     receiptNumber: { type: String },
+    donorNumber: { type: String, default: "" },
     receiptGeneratedAt: { type: Date },
     externalApiResponse: { type: Object },
     externalApiSentAt: { type: Date },
