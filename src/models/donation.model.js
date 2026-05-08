@@ -88,7 +88,7 @@ const donationSchema = new mongoose.Schema(
     versionKey: false,
   },
 );
-
+donationSchema.index({ razorpayOrderId: 1 }, { unique: true });
 const donationModle = mongoose.model("Donation", donationSchema);
 
 module.exports = { donationModle };

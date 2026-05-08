@@ -44,22 +44,19 @@ const webHookControler = {
         case "payment.captured": {
           const payment = event.payload.payment.entity;
 
-          // ✅ CRITICAL: Check if already processed using atomic operation
+          // ✅ FIX: Set a processing flag immediately using webhookProcessed
           const donation = await donationModle.findOneAndUpdate(
             {
               razorpayOrderId: payment.order_id,
-              $or: [
-                { receiptGeneratedAt: { $exists: false } },
-                { receiptGeneratedAt: null },
-              ],
+              webhookProcessed: { $ne: true }, // Only if not already processing
             },
             {
               $set: {
                 status: "paid",
                 razorpayPaymentId: payment.id,
+                webhookProcessed: true,
                 webhookProcessedAt: new Date(),
               },
-              $setOnInsert: { webhookProcessed: true },
             },
             { new: true },
           );
@@ -158,7 +155,6 @@ const webHookControler = {
               const phone = donation.mobile.startsWith("91")
                 ? donation.mobile
                 : `91${donation.mobile}`;
-
               console.log("📱 Sending WhatsApp to:", phone);
               const paymentType =
                 donation.subscriptionId || donation.isRecurring
@@ -173,12 +169,19 @@ const webHookControler = {
                 paymentType,
               );
               console.log("✅ WhatsApp sent successfully!");
+
+              // ✅ Update receiptGeneratedAt to confirm completion
+              await donationModle.findByIdAndUpdate(donation._id, {
+                $set: { receiptGeneratedAt: new Date() },
+              });
             } catch (error) {
               console.error("❌ Error in receipt generation/WhatsApp:", error);
               await donationModle.findByIdAndUpdate(donation._id, {
                 $inc: { receiptGenerationAttempts: 1 },
                 $set: {
                   receiptGenerationLastError: String(error.message || error),
+                  // Don't block future retries if failed
+                  webhookProcessed: false,
                 },
               });
             }
