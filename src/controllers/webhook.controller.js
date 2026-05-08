@@ -43,264 +43,116 @@ const webHookControler = {
       switch (event.event) {
         case "payment.captured": {
           const payment = event.payload.payment.entity;
-          console.log("=".repeat(50));
-          console.log("💰 Payment captured:", payment.id);
-          console.log("📦 Order ID:", payment.order_id);
-          console.log("=".repeat(50));
 
-          // First, find the donation to check its state
-          let donation = await donationModle.findOne({
-            razorpayOrderId: payment.order_id,
-          });
+          // ✅ Respond to Razorpay immediately — RIGHT HERE, before anything else
+          res.status(200).send("Webhook received");
 
-          if (!donation) {
-            console.log(
-              "⚠️ Donation not found for order ID:",
-              payment.order_id,
-            );
-            return res.status(200).send("Donation not found - will retry");
-          }
+          // Everything below runs AFTER response is sent
+          try {
+            let donation = await donationModle.findOne({
+              razorpayOrderId: payment.order_id,
+            });
 
-          console.log("📋 Donation found:", donation._id);
-          console.log("   Status:", donation.status);
-          console.log("   Amount:", donation.amount);
-          console.log("   Mobile:", donation.mobile);
-          console.log("   webhookProcessed:", donation.webhookProcessed);
-          console.log("   receiptGeneratedAt:", donation.receiptGeneratedAt);
-          console.log("   donorNumber:", donation.donorNumber);
-
-          // ✅ FIX: Auto-recover stuck webhooks (processing for > 2 minutes)
-          if (
-            donation.webhookProcessed === true &&
-            !donation.receiptGeneratedAt &&
-            donation.webhookProcessedAt
-          ) {
-            const stuckDuration =
-              (new Date() - new Date(donation.webhookProcessedAt)) / 1000;
-            if (stuckDuration > 120) {
-              // More than 2 minutes stuck
-              console.log(
-                `⚠️ Webhook stuck for ${stuckDuration} seconds. Resetting...`,
-              );
+            if (!donation) return;
+            if (donation.receiptGeneratedAt) return;
+            if (donation.webhookProcessed === true) {
+              const stuckDuration =
+                (new Date() - new Date(donation.webhookProcessedAt)) / 1000;
+              if (stuckDuration < 120) return;
               await donationModle.findByIdAndUpdate(donation._id, {
                 $set: { webhookProcessed: false },
                 $unset: { webhookProcessedAt: "" },
               });
               donation = await donationModle.findById(donation._id);
-              console.log("✅ Webhook flag reset, continuing processing...");
-            } else {
-              console.log(
-                `⚠️ Webhook currently processing (${stuckDuration}s). Skipping duplicate.`,
-              );
-              return res.status(200).send("Already processing");
             }
-          }
 
-          // If receipt exists but donorNumber is missing, update it (for old donations)
-          if (
-            donation.receiptGeneratedAt &&
-            !donation.donorNumber &&
-            donation.externalApiResponse?.DonorNumber
-          ) {
-            console.log(
-              "✅ Receipt exists but donorNumber missing. Updating...",
-            );
-            await donationModle.findByIdAndUpdate(donation._id, {
-              $set: { donorNumber: donation.externalApiResponse.DonorNumber },
-            });
-            console.log(
-              "✅ Donor number restored:",
-              donation.externalApiResponse.DonorNumber,
-            );
-          }
-
-          // If already has receipt, skip processing
-          if (donation.receiptGeneratedAt) {
-            console.log("✅ Donation already has receipt. Skipping.");
-            return res.status(200).send("Already processed");
-          }
-
-          // Check if currently being processed (prevent race condition)
-          if (donation.webhookProcessed === true) {
-            console.log("⚠️ Webhook already processing. Skipping duplicate.");
-            return res.status(200).send("Already processing");
-          }
-
-          // Mark as processing
-          // Mark as processing
-          console.log("🔴 STEP 1: About to call findByIdAndUpdate");
-          donation = await donationModle.findByIdAndUpdate(
-            donation._id,
-            {
-              $set: {
-                status: "paid",
-                razorpayPaymentId: payment.id,
-                webhookProcessed: true,
-                webhookProcessedAt: new Date(),
-              },
-            },
-            { new: true },
-          );
-          console.log("🔴 STEP 2: findByIdAndUpdate completed");
-
-          console.log("🔴 STEP 3: Checking if donation is null");
-          if (!donation) {
-            console.error("❌ CRITICAL: Donation became null after update!");
-            return res.status(200).send("Update failed - will retry");
-          }
-
-          console.log("🔴 STEP 4: About to log starting message");
-          console.log(
-            "✅ Starting full processing for donation:",
-            donation._id,
-          );
-
-          console.log("🔴 STEP 5: About to log amount");
-          console.log("   Amount:", donation.amount);
-
-          console.log("🔴 STEP 6: About to log mobile");
-          console.log("   Mobile:", donation.mobile);
-
-          console.log("🔴 STEP 7: About to call Meta API");
-          // Meta conversion event (non-blocking)
-          try {
-            const metaResponse = await metaConversionService.sendPurchaseEvent(
-              donation,
-              payment,
-            );
-            const metaUpdate = metaResponse?.skipped
-              ? {
-                  metaPurchaseResponse: metaResponse,
-                  metaPurchaseLastError:
-                    metaResponse.reason || "Meta Purchase event skipped",
-                }
-              : {
-                  metaPurchaseResponse: metaResponse,
-                  metaPurchaseSentAt: new Date(),
-                  metaPurchaseLastError: null,
-                };
-            await donationModle.findByIdAndUpdate(donation._id, {
-              $set: metaUpdate,
-            });
-            console.log(
-              "✅ Meta Purchase event processed for donation:",
+            donation = await donationModle.findByIdAndUpdate(
               donation._id,
-            );
-          } catch (metaErr) {
-            console.error(
-              "⚠️ Meta Purchase event error (non-fatal):",
-              metaErr.message,
-            );
-            await donationModle.findByIdAndUpdate(donation._id, {
-              $set: { metaPurchaseLastError: String(metaErr.message) },
-            });
-          }
-
-          // Process receipt and WhatsApp
-          if (donation.amount >= 1) {
-            console.log(
-              "📄 Starting receipt generation for amount:",
-              donation.amount,
+              {
+                $set: {
+                  status: "paid",
+                  razorpayPaymentId: payment.id,
+                  webhookProcessed: true,
+                  webhookProcessedAt: new Date(),
+                },
+              },
+              { new: true },
             );
 
+            if (!donation) return;
+
+            // Meta (non-blocking)
             try {
-              let apiResponse = null;
-
-              // Call BCC API
-              try {
-                console.log("📞 Calling BCC API...");
-                apiResponse = await externalDonationService.sendToExternalApi(
+              const metaResponse =
+                await metaConversionService.sendPurchaseEvent(
                   donation,
                   payment,
                 );
-                console.log(
-                  "✅ BCC API returned receipt:",
-                  apiResponse?.ReceiptNumber,
-                );
-                console.log(
-                  "✅ Donor Number from BCC:",
-                  apiResponse?.DonorNumber,
-                );
-
-                await donationModle.findByIdAndUpdate(donation._id, {
-                  $set: {
-                    externalApiResponse: apiResponse,
-                    externalApiSentAt: new Date(),
-                    donorNumber: apiResponse?.DonorNumber || "",
-                  },
-                });
-                console.log("✅ External API response saved to database");
-              } catch (apiErr) {
-                console.error(
-                  "⚠️ BCC API error (continuing with fallback):",
-                  apiErr.message,
-                );
-              }
-
-              // Generate PDF receipt
-              console.log("📄 Generating PDF...");
-              const filePath = await receiptService.generateReceipt(
-                donation,
-                apiResponse,
-              );
-              console.log("✅ PDF generated at:", filePath);
-
-              // Send WhatsApp
-              let phone = donation.mobile;
-              if (!phone.startsWith("91")) phone = `91${phone}`;
-              phone = phone.replace(/\D/g, "");
-
-              console.log("📱 Sending WhatsApp to:", phone);
-              const paymentType =
-                donation.subscriptionId || donation.isRecurring
-                  ? "subscription"
-                  : "normal";
-
-              const whatsappResult = await whatsappService.sendReceiptWhatsapp(
-                phone,
-                filePath,
-                donation.name,
-                donation.amount,
-                paymentType,
-              );
-              console.log("✅ WhatsApp sent successfully!", whatsappResult);
-
-              // Mark as complete with receiptGeneratedAt
               await donationModle.findByIdAndUpdate(donation._id, {
-                $set: { receiptGeneratedAt: new Date() },
-                webhookProcessed: true, // Ensure this is set to true
-              });
-
-              console.log(
-                "🎉 Webhook processing completed successfully for donation:",
-                donation._id,
-              );
-            } catch (error) {
-              console.error("❌ Error in receipt generation/WhatsApp:", error);
-              console.error("Error stack:", error.stack);
-              await donationModle.findByIdAndUpdate(donation._id, {
-                $inc: { receiptGenerationAttempts: 1 },
                 $set: {
-                  receiptGenerationLastError: String(error.message || error),
-                  webhookProcessed: false, // Reset to allow retry
+                  metaPurchaseResponse: metaResponse,
+                  metaPurchaseSentAt: new Date(),
+                  metaPurchaseLastError: null,
                 },
               });
+            } catch (metaErr) {
+              console.error("⚠️ Meta error:", metaErr.message);
             }
-          } else {
-            console.log(
-              "⚠️ Amount too low for receipt generation:",
-              donation.amount,
-            );
-            await donationModle.findByIdAndUpdate(donation._id, {
-              $set: { receiptGeneratedAt: new Date(), webhookProcessed: true },
-            });
+
+            if (donation.amount >= 1) {
+              try {
+                let apiResponse = null;
+                try {
+                  apiResponse = await externalDonationService.sendToExternalApi(
+                    donation,
+                    payment,
+                  );
+                  await donationModle.findByIdAndUpdate(donation._id, {
+                    $set: {
+                      externalApiResponse: apiResponse,
+                      externalApiSentAt: new Date(),
+                      donorNumber: apiResponse?.DonorNumber || "",
+                    },
+                  });
+                } catch (apiErr) {
+                  console.error("⚠️ BCC API error:", apiErr.message);
+                }
+
+                const filePath = await receiptService.generateReceipt(
+                  donation,
+                  apiResponse,
+                );
+
+                let phone = donation.mobile.replace(/\D/g, "");
+                if (!phone.startsWith("91")) phone = `91${phone}`;
+
+                await whatsappService.sendReceiptWhatsapp(
+                  phone,
+                  filePath,
+                  donation.name,
+                  donation.amount,
+                  donation.subscriptionId || donation.isRecurring
+                    ? "subscription"
+                    : "normal",
+                );
+
+                console.log("🎉 Processing completed for:", donation._id);
+              } catch (error) {
+                console.error("❌ Receipt/WhatsApp error:", error.message);
+                await donationModle.findByIdAndUpdate(donation._id, {
+                  $inc: { receiptGenerationAttempts: 1 },
+                  $set: {
+                    receiptGenerationLastError: String(error.message || error),
+                    webhookProcessed: false,
+                  },
+                });
+              }
+            }
+          } catch (err) {
+            console.error("❌ Webhook processing error:", err);
           }
 
-          console.log(
-            "🏁 Webhook processing finished for donation:",
-            donation._id,
-          );
-          break;
+          break; // ← break is still here, after the try/catch
         }
 
         case "subscription.activated": {
