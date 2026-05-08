@@ -1,4 +1,3 @@
-
 const axios = require("axios");
 const FormData = require("form-data");
 const fs = require("fs");
@@ -19,10 +18,10 @@ const sendPendingWhatsapp = async (phone, donorName, amount) => {
             {
               type: "image",
               image: {
-                link: "https://storage.googleapis.com/subhojanam/Avail%2080G%20Exemption%20(1).jpg"
-              }
-            }
-          ]
+                link: "https://storage.googleapis.com/subhojanam/Avail%2080G%20Exemption%20(1).jpg",
+              },
+            },
+          ],
         },
         {
           type: "body",
@@ -30,33 +29,91 @@ const sendPendingWhatsapp = async (phone, donorName, amount) => {
             { type: "text", text: String(donorName) },
             { type: "text", text: String(amount) },
             { type: "text", text: "Annadana Seva" },
-            { type: "text", text: "Once completed, the amount will be allocated towards providing meals" }
-          ]
-        }
-      ]
+            {
+              type: "text",
+              text: "Once completed, the amount will be allocated towards providing meals",
+            },
+          ],
+        },
+      ],
     },
-    { headers: { "Content-Type": "application/json" } }
+    { headers: { "Content-Type": "application/json" } },
   );
 
   return response.data;
 };
 
+// const sendReceiptWhatsapp = async (phone, filePath, donorName, amount, paymentType = "normal") => {
 
+//   const form = new FormData();
 
-const sendReceiptWhatsapp = async (phone, filePath, donorName, amount, paymentType = "normal") => {
+//   form.append("token", process.env.FLAXXA_TOKEN);
+//   form.append("phone", phone);
 
+//   let templateName = "annadana_acknowledgement_receipt";
+//   if (paymentType === "subscription") {
+//     templateName = "andseva_monthly_success_reciept";
+//   }
+//   form.append("template_name", templateName);
+//   form.append("template_language", "en");
+
+//   form.append(
+//     "components",
+//     JSON.stringify([
+//       {
+//         type: "body",
+//         parameters: [
+//           {
+//             type: "text",
+//             text: donorName
+//           },
+//           {
+//             type: "text",
+//             text: String(amount)
+//           }
+//         ]
+//       }
+//     ])
+//   );
+
+//   form.append(
+//     "header_attachment",
+//     fs.createReadStream(filePath),
+//       {
+//         filename: "Donation_Acknowledgment_Receipt.pdf",
+//         contentType: "application/pdf"
+//       }
+//   );
+
+//   const response = await axios.post(
+//     "https://wapi.flaxxa.com/api/v1/sendtemplatemessage_withattachment",
+//     form,
+//     {
+//       headers: form.getHeaders()
+//     }
+//   );
+
+//   return response.data;
+// };
+
+const sendReceiptWhatsapp = async (
+  phone,
+  filePath,
+  donorName,
+  amount,
+  paymentType = "normal",
+) => {
   const form = new FormData();
 
   form.append("token", process.env.FLAXXA_TOKEN);
   form.append("phone", phone);
 
-  let templateName = "annadana_acknowledgement_receipt";
+  let templateName = "common_donation_success_reciept"; // Updated template name
   if (paymentType === "subscription") {
     templateName = "andseva_monthly_success_reciept";
   }
   form.append("template_name", templateName);
   form.append("template_language", "en");
-
 
   form.append(
     "components",
@@ -66,32 +123,32 @@ const sendReceiptWhatsapp = async (phone, filePath, donorName, amount, paymentTy
         parameters: [
           {
             type: "text",
-            text: donorName
+            text: donorName, // 1st parameter: Name
           },
           {
             type: "text",
-            text: String(amount)
-          }
-        ]
-      }
-    ])
+            text: String(amount), // 2nd parameter: Amount
+          },
+          {
+            type: "text",
+            text: "Annadana Seva", // 3rd parameter: Hardcoded service name
+          },
+        ],
+      },
+    ]),
   );
 
-  form.append(
-    "header_attachment",
-    fs.createReadStream(filePath),
-      {
-        filename: "Donation_Acknowledgment_Receipt.pdf",
-        contentType: "application/pdf"
-      }
-  );
+  form.append("header_attachment", fs.createReadStream(filePath), {
+    filename: "Donation_Acknowledgment_Receipt.pdf",
+    contentType: "application/pdf",
+  });
 
   const response = await axios.post(
     "https://wapi.flaxxa.com/api/v1/sendtemplatemessage_withattachment",
     form,
     {
-      headers: form.getHeaders()
-    }
+      headers: form.getHeaders(),
+    },
   );
 
   return response.data;
