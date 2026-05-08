@@ -46,48 +46,16 @@ const webHookControler = {
           console.log("💰 Payment captured:", payment.id);
           console.log("📦 Order ID:", payment.order_id);
 
-          // FIRST: Find the donation without any webhookProcessed condition
-          let donation = await donationModle.findOne({
-            razorpayOrderId: payment.order_id,
-          });
-
-          if (!donation) {
-            console.error(
-              "❌ No donation found for order ID:",
-              payment.order_id,
-            );
-            // Don't return error - Razorpay will retry
-            return res.status(200).send("Donation not found - will retry");
-          }
-
-          console.log("📋 Found donation:", donation._id);
-          console.log("   Status:", donation.status);
-          console.log("   Webhook Processed:", donation.webhookProcessed);
-          console.log("   Receipt Generated:", donation.receiptGeneratedAt);
-
-          // Check if already fully processed
-          if (donation.receiptGeneratedAt) {
-            console.log("✅ Donation already has receipt. Skipping.");
-            return res.status(200).send("Already processed");
-          }
-
-          // If webhookProcessed is true but no receipt, something went wrong
-          // Allow retry
-          if (
-            donation.webhookProcessed === true &&
-            !donation.receiptGeneratedAt
-          ) {
-            console.log(
-              "⚠️ Webhook flag set but no receipt. Resetting to retry.",
-            );
-            await donationModle.findByIdAndUpdate(donation._id, {
-              $set: { webhookProcessed: false },
-            });
-          }
-
-          // Update to mark as processing
-          donation = await donationModle.findByIdAndUpdate(
-            donation._id,
+          // ✅ ATOMIC UPDATE - This prevents race conditions
+          const donation = await donationModle.findOneAndUpdate(
+            {
+              razorpayOrderId: payment.order_id,
+              receiptGeneratedAt: { $exists: false }, // Only if no receipt yet
+              $or: [
+                { webhookProcessed: { $ne: true } },
+                { webhookProcessed: { $exists: false } },
+              ],
+            },
             {
               $set: {
                 status: "paid",
@@ -99,10 +67,14 @@ const webHookControler = {
             { new: true },
           );
 
-          console.log(
-            "✅ Starting webhook processing for donation:",
-            donation._id,
-          );
+          if (!donation) {
+            console.log(
+              "⚠️ Donation already processed or not found. Skipping.",
+            );
+            return res.status(200).send("Already processed");
+          }
+
+          console.log("✅ Processing donation:", donation._id);
 
           // Meta conversion event (non-blocking)
           try {
@@ -200,7 +172,7 @@ const webHookControler = {
               );
               console.log("✅ WhatsApp sent successfully!", whatsappResult);
 
-              // Mark as complete
+              // ✅ Mark as complete with receiptGeneratedAt
               await donationModle.findByIdAndUpdate(donation._id, {
                 $set: { receiptGeneratedAt: new Date() },
               });
@@ -224,7 +196,6 @@ const webHookControler = {
               "⚠️ Amount too low for receipt generation:",
               donation.amount,
             );
-            // Mark as complete even without receipt
             await donationModle.findByIdAndUpdate(donation._id, {
               $set: { receiptGeneratedAt: new Date() },
             });
