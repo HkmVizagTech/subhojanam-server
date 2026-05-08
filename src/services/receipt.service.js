@@ -130,19 +130,12 @@ const generateReceipt = async (donation, apiResponse = null) => {
 
     const launchOptions = {
       headless: true,
-      executablePath:
-        process.env.PUPPETEER_EXECUTABLE_PATH || "/usr/bin/chromium",
+      executablePath: "/usr/bin/chromium",
       args: [
         "--no-sandbox",
         "--disable-setuid-sandbox",
-        "--disable-dev-shm-usage", // needed for Cloud Run
-        "--disable-gpu",
-        "--disable-software-rasterizer",
-        "--disable-extensions",
-        "--disable-crash-reporter", // stops crashpad dying
-        "--crash-dumps-dir=/tmp", // gives crashpad a valid path
+        "--disable-dev-shm-usage",
       ],
-      ignoreHTTPSErrors: true,
     };
     if (execPath) launchOptions.executablePath = execPath;
 
