@@ -79,8 +79,10 @@ const donationSchema = new mongoose.Schema(
     },
     reviewAfter: Date,
     lastPaymentDate: Date,
-  },
 
+    webhookProcessedAt: { type: Date },
+    webhookProcessed: { type: Boolean, default: false },
+  },
   {
     timestamps: true,
     versionKey: false,
