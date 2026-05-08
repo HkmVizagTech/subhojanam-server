@@ -1,9 +1,7 @@
 FROM node:18-slim
 
-# Install dependencies
 RUN apt-get update && apt-get install -y \
     chromium \
-    chromium-sandbox \
     fonts-liberation \
     libasound2 \
     libatk-bridge2.0-0 \
@@ -29,31 +27,14 @@ RUN apt-get update && apt-get install -y \
     --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
-# Environment variables
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
     PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium \
-    NODE_OPTIONS="--max-old-space-size=1024" \
-    CHROME_CRASHPAD_HANDLER_DISABLED=1 \
-    DISABLE_CRASH_REPORTING=1 \
-    NO_CRASH_REPORTER=1
-
-# Create non-root user
-RUN groupadd -r pptruser && useradd -r -g pptruser -G audio,video pptruser \
-    && mkdir -p /workspace/receipts \
-    && chown -R pptruser:pptruser /workspace
+    NODE_OPTIONS="--max-old-space-size=1024"
 
 WORKDIR /workspace
-
 COPY package*.json ./
 RUN npm ci --only=production
-
 COPY . .
 
-# Fix sandbox permissions
-RUN chmod 4755 /usr/bin/chromium-sandbox || true
-
-USER pptruser
-
 EXPOSE 8080
-
 CMD ["node", "index.js"]

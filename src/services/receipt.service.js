@@ -129,43 +129,19 @@ const generateReceipt = async (donation, apiResponse = null) => {
         : undefined);
 
     const launchOptions = {
-      headless: true,
+      headless: "new",
       executablePath:
         process.env.PUPPETEER_EXECUTABLE_PATH || "/usr/bin/chromium",
       args: [
         "--no-sandbox",
         "--disable-setuid-sandbox",
-        "--disable-dev-shm-usage",
+        "--disable-dev-shm-usage", // needed for Cloud Run
         "--disable-gpu",
         "--disable-software-rasterizer",
         "--disable-extensions",
-        "--disable-web-security",
-        "--disable-features=VizDisplayCompositor",
-        "--disable-font-subsetting",
-        "--disable-ipc-flooding-protection",
-        "--disable-renderer-backgrounding",
-        "--disable-background-timer-throttling",
-        "--disable-backgrounding-occluded-windows",
-        "--disable-breakpad",
-        "--disable-default-apps",
-        "--disable-hang-monitor",
-        "--disable-impl-side-painting",
-        "--disable-logging",
-        "--disable-prompt-on-repost",
-        "--disable-sync",
-        "--force-color-profile=srgb",
-        "--ignore-certificate-errors",
-        "--metrics-recording-only",
-        "--mute-audio",
-        "--no-default-browser-check",
-        "--no-first-run",
-        "--no-zygote",
-        "--password-store=basic",
-        "--use-gl=swiftshader",
-        "--single-process",
-        "--max_old_space_size=512",
+        "--disable-crash-reporter", // stops crashpad dying
+        "--crash-dumps-dir=/tmp", // gives crashpad a valid path
       ],
-      dumpio: false,
       ignoreHTTPSErrors: true,
     };
     if (execPath) launchOptions.executablePath = execPath;
