@@ -46,16 +46,52 @@ const webHookControler = {
           console.log("💰 Payment captured:", payment.id);
           console.log("📦 Order ID:", payment.order_id);
 
-          // ✅ ATOMIC UPDATE - This prevents race conditions
-          const donation = await donationModle.findOneAndUpdate(
-            {
-              razorpayOrderId: payment.order_id,
-              receiptGeneratedAt: { $exists: false }, // Only if no receipt yet
-              $or: [
-                { webhookProcessed: { $ne: true } },
-                { webhookProcessed: { $exists: false } },
-              ],
-            },
+          // First, find the donation to check its state
+          let donation = await donationModle.findOne({
+            razorpayOrderId: payment.order_id,
+          });
+
+          if (!donation) {
+            console.log(
+              "⚠️ Donation not found for order ID:",
+              payment.order_id,
+            );
+            return res.status(200).send("Donation not found - will retry");
+          }
+
+          // If receipt exists but donorNumber is missing, update it (for old donations)
+          if (
+            donation.receiptGeneratedAt &&
+            !donation.donorNumber &&
+            donation.externalApiResponse?.DonorNumber
+          ) {
+            console.log(
+              "✅ Receipt exists but donorNumber missing. Updating...",
+            );
+            await donationModle.findByIdAndUpdate(donation._id, {
+              $set: { donorNumber: donation.externalApiResponse.DonorNumber },
+            });
+            console.log(
+              "✅ Donor number restored:",
+              donation.externalApiResponse.DonorNumber,
+            );
+          }
+
+          // If already has receipt, skip processing
+          if (donation.receiptGeneratedAt) {
+            console.log("✅ Donation already has receipt. Skipping.");
+            return res.status(200).send("Already processed");
+          }
+
+          // Check if currently being processed (prevent race condition)
+          if (donation.webhookProcessed === true) {
+            console.log("⚠️ Webhook already processing. Skipping duplicate.");
+            return res.status(200).send("Already processing");
+          }
+
+          // Mark as processing
+          donation = await donationModle.findByIdAndUpdate(
+            donation._id,
             {
               $set: {
                 status: "paid",
@@ -67,14 +103,9 @@ const webHookControler = {
             { new: true },
           );
 
-          if (!donation) {
-            console.log(
-              "⚠️ Donation already processed or not found. Skipping.",
-            );
-            return res.status(200).send("Already processed");
-          }
-
           console.log("✅ Processing donation:", donation._id);
+          console.log("   Amount:", donation.amount);
+          console.log("   Mobile:", donation.mobile);
 
           // Meta conversion event (non-blocking)
           try {
@@ -131,6 +162,10 @@ const webHookControler = {
                   "✅ BCC API returned receipt:",
                   apiResponse?.ReceiptNumber,
                 );
+                console.log(
+                  "✅ Donor Number from BCC:",
+                  apiResponse?.DonorNumber,
+                );
 
                 await donationModle.findByIdAndUpdate(donation._id, {
                   $set: {
@@ -155,9 +190,10 @@ const webHookControler = {
               console.log("✅ PDF generated at:", filePath);
 
               // Send WhatsApp
-              const phone = donation.mobile.startsWith("91")
-                ? donation.mobile
-                : `91${donation.mobile}`;
+              let phone = donation.mobile;
+              if (!phone.startsWith("91")) phone = `91${phone}`;
+              phone = phone.replace(/\D/g, "");
+
               console.log("📱 Sending WhatsApp to:", phone);
               const paymentType =
                 donation.subscriptionId || donation.isRecurring
@@ -173,7 +209,7 @@ const webHookControler = {
               );
               console.log("✅ WhatsApp sent successfully!", whatsappResult);
 
-              // ✅ Mark as complete with receiptGeneratedAt
+              // Mark as complete with receiptGeneratedAt
               await donationModle.findByIdAndUpdate(donation._id, {
                 $set: { receiptGeneratedAt: new Date() },
               });
