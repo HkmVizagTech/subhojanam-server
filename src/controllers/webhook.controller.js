@@ -43,8 +43,10 @@ const webHookControler = {
       switch (event.event) {
         case "payment.captured": {
           const payment = event.payload.payment.entity;
+          console.log("=".repeat(50));
           console.log("💰 Payment captured:", payment.id);
           console.log("📦 Order ID:", payment.order_id);
+          console.log("=".repeat(50));
 
           // First, find the donation to check its state
           let donation = await donationModle.findOne({
@@ -58,6 +60,14 @@ const webHookControler = {
             );
             return res.status(200).send("Donation not found - will retry");
           }
+
+          console.log("📋 Donation found:", donation._id);
+          console.log("   Status:", donation.status);
+          console.log("   Amount:", donation.amount);
+          console.log("   Mobile:", donation.mobile);
+          console.log("   webhookProcessed:", donation.webhookProcessed);
+          console.log("   receiptGeneratedAt:", donation.receiptGeneratedAt);
+          console.log("   donorNumber:", donation.donorNumber);
 
           // If receipt exists but donorNumber is missing, update it (for old donations)
           if (
@@ -103,7 +113,10 @@ const webHookControler = {
             { new: true },
           );
 
-          console.log("✅ Processing donation:", donation._id);
+          console.log(
+            "✅ Starting full processing for donation:",
+            donation._id,
+          );
           console.log("   Amount:", donation.amount);
           console.log("   Mobile:", donation.mobile);
 
@@ -174,6 +187,7 @@ const webHookControler = {
                     donorNumber: apiResponse?.DonorNumber || "",
                   },
                 });
+                console.log("✅ External API response saved to database");
               } catch (apiErr) {
                 console.error(
                   "⚠️ BCC API error (continuing with fallback):",
@@ -220,6 +234,7 @@ const webHookControler = {
               );
             } catch (error) {
               console.error("❌ Error in receipt generation/WhatsApp:", error);
+              console.error("Error stack:", error.stack);
               await donationModle.findByIdAndUpdate(donation._id, {
                 $inc: { receiptGenerationAttempts: 1 },
                 $set: {
@@ -238,6 +253,10 @@ const webHookControler = {
             });
           }
 
+          console.log(
+            "🏁 Webhook processing finished for donation:",
+            donation._id,
+          );
           break;
         }
 
