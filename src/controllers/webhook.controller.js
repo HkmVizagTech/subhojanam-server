@@ -69,6 +69,33 @@ const webHookControler = {
           console.log("   receiptGeneratedAt:", donation.receiptGeneratedAt);
           console.log("   donorNumber:", donation.donorNumber);
 
+          // ✅ FIX: Auto-recover stuck webhooks (processing for > 2 minutes)
+          if (
+            donation.webhookProcessed === true &&
+            !donation.receiptGeneratedAt &&
+            donation.webhookProcessedAt
+          ) {
+            const stuckDuration =
+              (new Date() - new Date(donation.webhookProcessedAt)) / 1000;
+            if (stuckDuration > 120) {
+              // More than 2 minutes stuck
+              console.log(
+                `⚠️ Webhook stuck for ${stuckDuration} seconds. Resetting...`,
+              );
+              await donationModle.findByIdAndUpdate(donation._id, {
+                $set: { webhookProcessed: false },
+                $unset: { webhookProcessedAt: "" },
+              });
+              donation = await donationModle.findById(donation._id);
+              console.log("✅ Webhook flag reset, continuing processing...");
+            } else {
+              console.log(
+                `⚠️ Webhook currently processing (${stuckDuration}s). Skipping duplicate.`,
+              );
+              return res.status(200).send("Already processing");
+            }
+          }
+
           // If receipt exists but donorNumber is missing, update it (for old donations)
           if (
             donation.receiptGeneratedAt &&
@@ -100,6 +127,8 @@ const webHookControler = {
           }
 
           // Mark as processing
+          // Mark as processing
+          console.log("🔴 STEP 1: About to call findByIdAndUpdate");
           donation = await donationModle.findByIdAndUpdate(
             donation._id,
             {
@@ -112,14 +141,27 @@ const webHookControler = {
             },
             { new: true },
           );
+          console.log("🔴 STEP 2: findByIdAndUpdate completed");
 
+          console.log("🔴 STEP 3: Checking if donation is null");
+          if (!donation) {
+            console.error("❌ CRITICAL: Donation became null after update!");
+            return res.status(200).send("Update failed - will retry");
+          }
+
+          console.log("🔴 STEP 4: About to log starting message");
           console.log(
             "✅ Starting full processing for donation:",
             donation._id,
           );
+
+          console.log("🔴 STEP 5: About to log amount");
           console.log("   Amount:", donation.amount);
+
+          console.log("🔴 STEP 6: About to log mobile");
           console.log("   Mobile:", donation.mobile);
 
+          console.log("🔴 STEP 7: About to call Meta API");
           // Meta conversion event (non-blocking)
           try {
             const metaResponse = await metaConversionService.sendPurchaseEvent(
