@@ -43,10 +43,10 @@ const webHookControler = {
       switch (event.event) {
         case "payment.captured": {
           const payment = event.payload.payment.entity;
+          let donation = null; // ← declare OUTSIDE try so catch can access it
 
-          // Don't respond early — process everything, Cloud Run timeout is now 300s
           try {
-            let donation = await donationModle.findOne({
+            donation = await donationModle.findOne({
               razorpayOrderId: payment.order_id,
             });
 
@@ -80,7 +80,6 @@ const webHookControler = {
 
             if (!donation) return res.status(200).send("Update failed");
 
-            // Meta (non-blocking, don't await)
             metaConversionService
               .sendPurchaseEvent(donation, payment)
               .then((metaResponse) =>
@@ -113,7 +112,6 @@ const webHookControler = {
                 console.error("⚠️ BCC API error:", apiErr.message);
               }
 
-              // Generate PDF — this is the slow part, needs the 300s timeout
               const filePath = await receiptService.generateReceipt(
                 donation,
                 apiResponse,
@@ -137,13 +135,16 @@ const webHookControler = {
             return res.status(200).send("Webhook processed");
           } catch (error) {
             console.error("❌ Webhook error:", error.message);
-            await donationModle.findByIdAndUpdate(donation._id, {
-              $inc: { receiptGenerationAttempts: 1 },
-              $set: {
-                receiptGenerationLastError: String(error.message),
-                webhookProcessed: false,
-              },
-            });
+            if (donation?._id) {
+              // ← safe check, donation may still be null
+              await donationModle.findByIdAndUpdate(donation._id, {
+                $inc: { receiptGenerationAttempts: 1 },
+                $set: {
+                  receiptGenerationLastError: String(error.message),
+                  webhookProcessed: false,
+                },
+              });
+            }
             return res.status(200).send("Webhook error - will retry");
           }
         }
