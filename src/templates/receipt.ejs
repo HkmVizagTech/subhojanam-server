@@ -1,254 +1,318 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Donation Receipt</title>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Serif:wght@400;700&display=swap" rel="stylesheet">
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    font-family: 'Noto Serif', 'Times New Roman', serif;
-    background: #fff;
-    margin: 0;
-    padding: 0;
-  }
-  .receipt {
-    width: 718px;
-    background: #fff;
-    margin: 0;
-    padding: 0;
-  }
-  .green-bar {
-    width: 100%;
-    height: 6px;
-    background: hsl(120, 60%, 30%);
-  }
-  .content {
-    padding: 20px 50px 10px 50px;
-  }
-  .confirmed-header {
-    text-align: right;
-    margin-top: 2cm;
-    margin-bottom: 2cm;
-  }
-  .confirmed-header h2 {
-    font-size: 22px;
-    font-weight: bold;
-    color: hsl(120, 60%, 30%);
-  }
-  .header {
-    display: flex;
-    align-items: flex-start;
-    gap: 15px;
-    margin-bottom: 10px;
-  }
-  .header img {
-    width: 130px;
-    height: auto;
-    display: block;
-  }
-  .org-details {
-    flex: 1;
-    text-align: right;
-  }
-  .org-details h1 {
-    font-size: 24px;
-    font-weight: bold;
-    color: #000;
-    line-height: 1.2;
-    margin-bottom: 4px;
-  }
-  .org-details p {
-    font-size: 11px;
-    color: #000;
-    line-height: 1.6;
-  }
-  .title-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-top: 20px;
-    margin-bottom: 5px;
-  }
-  .title-row h2 {
-    font-size: 18px;
-    font-weight: bold;
-    text-decoration: underline;
-    text-underline-offset: 4px;
-    text-align: center;
-    flex: 1;
-  }
-  .title-row .dr-no {
-    font-size: 13px;
-    text-align: right;
-  }
-  .date-row {
-    text-align: right;
-    font-size: 13px;
-    margin-bottom: 15px;
-  }
-  .donor-details {
-    font-size: 13px;
-    line-height: 2;
-    color: #000;
-  }
-  .donor-details p { margin: 0; }
-  .flex-between {
-    display: flex;
-    justify-content: space-between;
-  }
-  .flex-gap {
-    display: flex;
-    gap: 30px;
-  }
-  .ml-auto { margin-left: auto; }
-  .ml-50 { margin-left: 50px; }
-  .ml-80 { margin-left: 80px; }
-  .bold { font-weight: bold; }
-  .cheque-note {
-    font-size: 11px;
-    margin-top: 8px;
-    color: #000;
-  }
-  .stamp-area {
-    display: flex;
-    justify-content: flex-end;
-    margin-top: 50px;
-    margin-bottom: 10px;
-  }
-  .stamp-area .stamp-box {
-    text-align: center;
-  }
-  .stamp-area img {
-    width: 90px;
-    height: 90px;
-    display: block;
-    margin: 0 auto 5px auto;
-  }
-  .stamp-area p {
-    font-size: 13px;
-  }
-  .footer {
-    text-align: center;
-    margin-top: 15px;
-    font-size: 10px;
-    color: #000;
-    line-height: 1.8;
-  }
-  .footer .mantra {
-    margin-top: 5px;
-    font-size: 11px;
-  }
-  .electronic-note {
-    text-align: center;
-    font-size: 11px;
-    margin-top: 30px;
-    margin-bottom: 20px;
-    color: #000;
-  }
-</style>
-</head>
-<body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Donation Receipt</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Serif:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family: "Noto Serif", "Times New Roman", serif;
+        background: #fff;
+        margin: 0;
+        padding: 0;
+      }
+      .receipt {
+        width: 718px;
+        background: #fff;
+        margin: 0;
+        padding: 0;
+      }
+      .green-bar {
+        width: 100%;
+        height: 6px;
+        background: hsl(120, 60%, 30%);
+      }
+      .content {
+        padding: 20px 50px 10px 50px;
+      }
+      .confirmed-header {
+        text-align: right;
+        margin-top: 2cm;
+        margin-bottom: 2cm;
+      }
+      .confirmed-header h2 {
+        font-size: 22px;
+        font-weight: bold;
+        color: hsl(120, 60%, 30%);
+      }
+      .header {
+        display: flex;
+        align-items: flex-start;
+        gap: 15px;
+        margin-bottom: 10px;
+      }
+      .header img {
+        width: 130px;
+        height: auto;
+        display: block;
+      }
+      .org-details {
+        flex: 1;
+        text-align: right;
+      }
+      .org-details h1 {
+        font-size: 24px;
+        font-weight: bold;
+        color: #000;
+        line-height: 1.2;
+        margin-bottom: 4px;
+      }
+      .org-details p {
+        font-size: 11px;
+        color: #000;
+        line-height: 1.6;
+      }
+      .title-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-top: 20px;
+        margin-bottom: 5px;
+      }
+      .title-row h2 {
+        font-size: 18px;
+        font-weight: bold;
+        text-decoration: underline;
+        text-underline-offset: 4px;
+        text-align: center;
+        flex: 1;
+      }
+      .title-row .dr-no {
+        font-size: 13px;
+        text-align: right;
+      }
+      .date-row {
+        text-align: right;
+        font-size: 13px;
+        margin-bottom: 15px;
+      }
+      .donor-details {
+        font-size: 13px;
+        line-height: 2;
+        color: #000;
+      }
+      .donor-details p {
+        margin: 0;
+      }
+      .flex-between {
+        display: flex;
+        justify-content: space-between;
+      }
+      .flex-gap {
+        display: flex;
+        gap: 30px;
+      }
+      .ml-auto {
+        margin-left: auto;
+      }
+      .ml-50 {
+        margin-left: 50px;
+      }
+      .ml-80 {
+        margin-left: 80px;
+      }
+      .bold {
+        font-weight: bold;
+      }
+      .cheque-note {
+        font-size: 11px;
+        margin-top: 8px;
+        color: #000;
+      }
+      .stamp-area {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: 50px;
+        margin-bottom: 10px;
+      }
+      .stamp-area .stamp-box {
+        text-align: center;
+      }
+      .stamp-area img {
+        width: 90px;
+        height: 90px;
+        display: block;
+        margin: 0 auto 5px auto;
+      }
+      .stamp-area p {
+        font-size: 13px;
+      }
+      .footer {
+        text-align: center;
+        margin-top: 15px;
+        font-size: 10px;
+        color: #000;
+        line-height: 1.8;
+      }
+      .footer .mantra {
+        margin-top: 5px;
+        font-size: 11px;
+      }
+      .electronic-note {
+        text-align: center;
+        font-size: 11px;
+        margin-top: 30px;
+        margin-bottom: 20px;
+        color: #000;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="receipt">
+      <div class="content">
+        <div class="confirmed-header">
+          <div style="text-align: right; margin-top: 76px; margin-bottom: 76px">
+            <h2
+              style="
+                font-size: 16px;
+                font-weight: bold;
+                color: hsla(168, 3%, 65%, 1);
+                font-family: Helvetica, Arial, sans-serif;
+              "
+            >
+              DONATION
+              <h2
+                style="
+                  font-size: 16px;
+                  font-weight: bold;
+                  color: hsla(168, 3%, 65%, 1);
+                  font-family: Helvetica, Arial, sans-serif;
+                "
+              >
+                Acknowledgement
+              </h2>
+            </h2>
+          </div>
+        </div>
 
-<div class="receipt">
-  <div class="content">
+        <div class="header">
+          <div>
+            <!-- <img src="../public/hkmi-logo.jpg" alt="HKMI Logo"> -->
+            <img
+              src="data:image/jpeg;base64,<%= logoBase64 %>"
+              alt="HKMI Logo"
+            />
+          </div>
+          <div class="org-details">
+            <h1>HARE KRISHNA MOVEMENT INDIA</h1>
+            <p>
+              (Serving the Mission of His Divine Grace A.C. Bhaktivendanta swami
+              Prabhupada)
+            </p>
+            <p>
+              Branch Office : #8-22, Near RTO Office, Next to Akshaya Patra
+              Foundation Kitchen,
+            </p>
+            <p>IIM Road, Gambheeram, Visakhapatanam - 530052. (A.P.) INDIA.</p>
+            <p>Phone : +91 9030696108, E-mail : donorcare@hkmvizag.org</p>
+            <p>HKMI PAN No : AABTH4550P</p>
+          </div>
+        </div>
 
-    <div class="confirmed-header">
-      <div style="text-align: right; margin-top: 76px; margin-bottom: 76px;">
-        <h2 style="font-size: 16px; font-weight: bold; color: hsla(168, 3%, 65%, 1.00); font-family: Helvetica, Arial, sans-serif;">
-          DONATION <h2 style="font-size: 16px; font-weight: bold; color: hsla(168, 3%, 65%, 1.00); font-family: Helvetica, Arial, sans-serif;">Acknowledgement</h2>
-        </h2>
-      </div>
-    </div>
+        <div class="title-row">
+          <h2>DONATION RECEIPT</h2>
+          <div class="dr-no">
+            <p>Ref No. <span class="bold"><%= receiptNumber %></span></p>
+          </div>
+        </div>
 
-    <div class="header">
-      <div>
-        <!-- <img src="../public/hkmi-logo.jpg" alt="HKMI Logo"> -->
-        <img src="data:image/jpeg;base64,<%= logoBase64 %>" alt="HKMI Logo">
-      </div>
-      <div class="org-details">
-        <h1>HARE KRISHNA MOVEMENT INDIA</h1>
-        <p>(Serving the Mission of His Divine Grace A.C. Bhaktivendanta swami Prabhupada)</p>
-        <p>Branch Office : #8-22, Near RTO Office, Next to Akshaya Patra Foundation Kitchen,</p>
-        <p>IIM Road, Gambheeram, Visakhapatanam - 530052. (A.P.) INDIA.</p>
-        <p>Phone : +91 9030696108, E-mail : donorcare@hkmvizag.org</p>
-        <p>HKMI PAN No : AABTH4550P</p>
-      </div>
-    </div>
+        <div class="date-row">
+          <p>Date: <span class="bold"><%= receiptDate %></span></p>
+        </div>
 
-    <div class="title-row">
-      <h2>DONATION RECEIPT</h2>
-      <div class="dr-no">
-        <p>Ref No. <span class="bold"><%= receiptNumber %></span></p>
-      </div>
-    </div>
+        <div class="donor-details">
+          <p>Name of the Donor : <%= donorName %></p>
+          <p>Address : <%= address %></p>
 
-    <div class="date-row">
-      <p>Date: <span class="bold"><%= receiptDate %></span></p>
-    </div>
+          <div class="flex-gap">
+            <p>
+              Donor ID :
+              <span class="bold"><%= donorNumber || patronId || 'N/A' %></span>
+            </p>
+            <p style="margin-left: 150px">Sevak Name : <%= sevakName %></p>
+          </div>
 
-    <div class="donor-details">
-      <p>Name of the Donor : <%= donorName %></p>
-      <p>Address : <%= address %></p>
+          <div class="flex-gap">
+            <p>Phone : Res : &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Off :</p>
+            <p style="margin-left: 185px">Mobile : <%= mobile %></p>
+          </div>
 
-      <div class="flex-gap">
-        <p>Reference(Patronship No) : <span class="bold"><%= patronId %></span></p>
-        <p style="margin-left: 150px;">Sevak Name : <%= sevakName %></p>
-      </div>
+          <p>
+            Tax exemption Required
+            <span class="bold"><%= certificate %></span> (Under section 80G, of
+            the Income Tax Act)
+          </p>
 
-      <div class="flex-gap">
-        <p>Phone : Res : &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Off :</p>
-        <p style="margin-left: 185px;">Mobile : <%= mobile %></p>
-      </div>
+          <div class="flex-gap">
+            <p>E-mail : <%= email %></p>
+            <p style="margin-left: 180px">PAN : <%= pan %></p>
+          </div>
 
-      <p>Tax exemption Required <span class="bold"><%= certificate %></span> (Under section 80G, of the Income Tax Act)</p>
+          <div class="flex-gap">
+            <p>Rs. <span class="bold"><%= amount %> /-</span></p>
+            <p>Rupees : <span class="bold"><%= amountWords %></span></p>
+          </div>
 
-      <div class="flex-gap">
-        <p>E-mail : <%= email %></p>
-        <p style="margin-left: 180px;">PAN : <%= pan %></p>
-      </div>
+          <div class="flex-gap">
+            <p>by <span class="bold">Online</span></p>
+            <p class="ml-50">Reference No : <%= paymentRef %></p>
+            <p style="margin-left: 55px">Date : <%= paymentDate %></p>
+          </div>
 
-      <div class="flex-gap">
-        <p>Rs. <span class="bold"><%= amount %> /-</span></p>
-        <p>Rupees : <span class="bold"><%= amountWords %></span></p>
-      </div>
-
-      <div class="flex-gap">
-        <p>by <span class="bold">Online</span></p>
-        <p class="ml-50">Reference No : <%= paymentRef %></p>
-        <p style="margin-left: 55px;">Date : <%= paymentDate %></p>
-      </div>
-
-  <!-- externalApiResponse intentionally not rendered here to keep receipt layout unchanged;
+          <!-- externalApiResponse intentionally not rendered here to keep receipt layout unchanged;
        external data (for example ReceiptNumber) is still used by the server when generating the
        receipt number displayed above. -->
 
-      <div class="flex-gap">
-        <p>Bank :</p>
-        <!-- <p class="ml-80">Enrolled by <span class="bold">RVRD</span></p> -->
-        <p style="margin-left: 135px;">Towards : <span class="bold">Annadana Seva</span></p>
+          <div class="flex-gap">
+            <p>Bank :</p>
+            <!-- <p class="ml-80">Enrolled by <span class="bold">RVRD</span></p> -->
+            <p style="margin-left: 135px">
+              Towards : <span class="bold">Annadana Seva</span>
+            </p>
+          </div>
+        </div>
+
+        <p class="cheque-note">
+          *Cheque Payment : Subject to realization. We do not accept anonymous
+          donations.
+        </p>
+
+        <div class="stamp-area">
+          <div class="stamp-box">
+            <!-- <img src="../public/hkmi-stamp-removebg-preview.png" alt="HKMI Stamp"> -->
+            <img
+              src="data:image/png;base64,<%= stampBase64 %>"
+              alt="HKMI Stamp"
+            />
+            <p>for <span class="bold">HKM INDIA</span></p>
+          </div>
+        </div>
+
+        <div class="footer">
+          <p>
+            Regd. & Head office : Sri Radha Vrindavan Chandra Mandir, Chatikara
+            Road, Vrindavan, Mathura District, U.P. - 281 121
+          </p>
+          <p class="mantra">
+            Hare Krishna Hare Krishna Krishna Krishna Hare Hare Hare Rama Hare
+            Rama Rama Rama Hare Hare
+          </p>
+        </div>
+
+        <p class="electronic-note">
+          *This is an electronically generated receipt, hence does not require
+          signature
+        </p>
       </div>
     </div>
-
-    <p class="cheque-note">*Cheque Payment : Subject to realization. We do not accept anonymous donations.</p>
-
-    <div class="stamp-area">
-      <div class="stamp-box">
-        <!-- <img src="../public/hkmi-stamp-removebg-preview.png" alt="HKMI Stamp"> -->
-         <img src="data:image/png;base64,<%= stampBase64 %>" alt="HKMI Stamp">
-        <p>for <span class="bold">HKM INDIA</span></p>
-      </div>
-    </div>
-
-    <div class="footer">
-      <p>Regd. & Head office : Sri Radha Vrindavan Chandra Mandir, Chatikara Road, Vrindavan, Mathura District, U.P. - 281 121</p>
-      <p class="mantra">Hare Krishna Hare Krishna Krishna Krishna Hare Hare Hare Rama Hare Rama Rama Rama Hare Hare</p>
-    </div>
-
-    <p class="electronic-note">*This is an electronically generated receipt, hence does not require signature</p>
-  </div>
-</div>
-
-</body>
+  </body>
 </html>

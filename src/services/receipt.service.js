@@ -74,7 +74,7 @@ const generateReceipt = async (donation, apiResponse = null) => {
 
     // Save receipt number to donation (always as string)
     await donationModle.findByIdAndUpdate(donation._id, {
-      receiptNumber: String(receiptNumber),
+      receiptNumber: formattedReceiptNumber,
       receiptGeneratedAt: new Date(),
     });
 
@@ -107,6 +107,7 @@ const generateReceipt = async (donation, apiResponse = null) => {
       address: address || "N/A",
       patronId: "",
       sevakName: "",
+      donorNumber: apiResp?.DonorNumber || "",
       mobile: donation.mobile || "",
       certificate: donation.certificate === true ? "YES" : "NO",
       email: donation.email || "",
