@@ -129,7 +129,7 @@ const generateReceipt = async (donation, apiResponse = null) => {
         : undefined);
 
     const launchOptions = {
-      headless: "new",
+      headless: true,
       executablePath:
         process.env.PUPPETEER_EXECUTABLE_PATH || "/usr/bin/chromium",
       args: [
@@ -150,7 +150,8 @@ const generateReceipt = async (donation, apiResponse = null) => {
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: "load" });
 
-    const receiptsDir = path.join(__dirname, "../../receipts");
+    // const receiptsDir = path.join(__dirname, "../../receipts");
+    const receiptsDir = process.env.RECEIPTS_DIR || "/tmp/receipts";
     if (!fs.existsSync(receiptsDir)) {
       fs.mkdirSync(receiptsDir);
     }
