@@ -46,7 +46,7 @@ const sendToExternalApi = async (donation, payment = {}) => {
         : donation.createdAt
           ? new Date(donation.createdAt).toLocaleDateString("en-GB")
           : null,
-      enrolledBy: 1, // 🔑 CRITICAL FIX: Required field (max 3 digits)
+      enrolledBy: 36, // 🔑 CRITICAL FIX: Required field (max 3 digits)
     };
 
     console.log(
