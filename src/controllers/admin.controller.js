@@ -20,6 +20,7 @@ const adminController = {
             _id: {
               campaign: { $ifNull: ["$utm.campaign", "direct"] },
               source: { $ifNull: ["$utm.source", "direct"] },
+              medium: { $ifNull: ["$utm.medium", "none"] },
             },
             totalAmount: { $sum: "$amount" },
             count: { $sum: 1 },
