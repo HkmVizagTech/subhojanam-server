@@ -162,6 +162,7 @@ app.use(
         "http://localhost:5173",
         "http://localhost:3000",
         "https://test.harekrishnavizag.org",
+        "https://donations.harekrishnavizag.org",
         "https://subhojanam-client.vercel.app",
       ];
       // Allow requests with no origin (like mobile apps or curl)
