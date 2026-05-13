@@ -161,56 +161,95 @@ const webHookControler = {
         case "subscription.charged": {
           const payment = event.payload.payment.entity;
 
-          const donation = await donationModle.findOneAndUpdate(
-            {
-              subscriptionId: payment.subscription_id,
-              status: { $ne: "paid" },
-            },
-            {
-              status: "paid",
-              razorpayPaymentId: payment.id,
-            },
-            { new: true },
-          );
+          // 1. Check idempotency — don't process same payment twice
+          const alreadyProcessed = await donationModle.findOne({
+            razorpayPaymentId: payment.id,
+          });
+          if (alreadyProcessed) {
+            console.log("subscription.charged already processed:", payment.id);
+            break;
+          }
 
-          if (donation) {
-            // Meta conversion
+          // 2. Find original subscription donation to get donor details
+          const originalDonation = await donationModle.findOne({
+            subscriptionId: payment.subscription_id,
+          }).sort({ createdAt: 1 }); // oldest = original
+
+          if (!originalDonation) {
+            console.error("No original donation found for subscription:", payment.subscription_id);
+            break;
+          }
+
+          // 3. Create a new donation record for this month's charge
+          const newDonation = await donationModle.create({
+            name: originalDonation.name,
+            email: originalDonation.email,
+            mobile: originalDonation.mobile,
+            amount: originalDonation.amount,
+            certificate: originalDonation.certificate,
+            panNumber: originalDonation.panNumber,
+            address: originalDonation.address,
+            city: originalDonation.city,
+            state: originalDonation.state,
+            pincode: originalDonation.pincode,
+            occasion: originalDonation.occasion,
+            mahaprasadam: originalDonation.mahaprasadam,
+            prasadamAddressOption: originalDonation.prasadamAddressOption,
+            prasadamAddress: originalDonation.prasadamAddress,
+            utm: originalDonation.utm,
+            fbp: originalDonation.fbp,
+            fbc: originalDonation.fbc,
+            clientIp: originalDonation.clientIp,
+            userAgent: originalDonation.userAgent,
+            subscriptionId: payment.subscription_id,
+            isRecurring: true,
+            razorpayPaymentId: payment.id,
+            status: "paid",
+            failureCount: 0,
+            webhookProcessed: true,
+            webhookProcessedAt: new Date(),
+          });
+
+          // 4. Meta conversion
+          try {
+            const metaResponse = await metaConversionService.sendPurchaseEvent(
+              newDonation,
+              payment,
+            );
+            await donationModle.findByIdAndUpdate(newDonation._id, {
+              $set: {
+                metaPurchaseResponse: metaResponse,
+                metaPurchaseSentAt: new Date(),
+              },
+            });
+          } catch (metaErr) {
+            console.error("Meta error:", metaErr.message);
+          }
+
+          // 5. Generate receipt + send WhatsApp
+          if (newDonation.amount >= 1) {
             try {
-              const metaResponse =
-                await metaConversionService.sendPurchaseEvent(
-                  donation,
-                  payment,
-                );
-              await donationModle.findByIdAndUpdate(donation._id, {
-                $set: {
-                  metaPurchaseResponse: metaResponse,
-                  metaPurchaseSentAt: new Date(),
-                },
-              });
-            } catch (metaErr) {
-              console.error("Meta error:", metaErr.message);
-            }
-
-            // Generate receipt
-            if (donation.amount >= 1) {
-              try {
-                const filePath = await receiptService.generateReceipt(donation);
-                const phone = donation.mobile.startsWith("91")
-                  ? donation.mobile
-                  : `91${donation.mobile}`;
-                await whatsappService.sendReceiptWhatsapp(
-                  phone,
-                  filePath,
-                  donation.name,
-                  donation.amount,
-                  "subscription",
-                );
-                console.log("✅ WhatsApp sent for subscription!");
-              } catch (error) {
-                console.error("Error in subscription receipt:", error);
-              }
+              const filePath = await receiptService.generateReceipt(newDonation);
+              let phone = newDonation.mobile.replace(/\D/g, "");
+              if (!phone.startsWith("91")) phone = `91${phone}`;
+              await whatsappService.sendReceiptWhatsapp(
+                phone,
+                filePath,
+                newDonation.name,
+                newDonation.amount,
+                "subscription",
+              );
+              console.log("✅ WhatsApp sent for subscription charge:", payment.id);
+            } catch (error) {
+              console.error("Error in subscription receipt:", error);
             }
           }
+
+          // 6. Update original donation's lastPaymentDate
+          await donationModle.findByIdAndUpdate(originalDonation._id, {
+            $set: { lastPaymentDate: new Date() },
+          });
+
           break;
         }
 
