@@ -164,7 +164,7 @@ const paymentController = {
       const subscription = await razorpay.subscriptions.create({
         plan_id: planId,
         customer_notify: 0,
-        total_count: 12,
+        total_count: 120,
         quantity: 1,
       });
 
