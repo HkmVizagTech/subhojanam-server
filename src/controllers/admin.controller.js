@@ -294,9 +294,10 @@ const adminController = {
       }
 
       // Filter only donations that have a receipt generated
+      // receiptGeneratedAt is set only after PDF is successfully written to disk
       if (hasReceipt === "true") {
-        query.receiptNumber = { $exists: true, $nin: [null, ""] };
-        query.amount = { $gte: 1 }; // exclude test transactions
+        query.receiptGeneratedAt = { $exists: true, $ne: null };
+        query.amount = { $gte: 1 };
       }
 
       if (search) {
