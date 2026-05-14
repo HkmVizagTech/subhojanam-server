@@ -398,7 +398,10 @@ const adminController = {
       const { startDate, endDate, status = "all" } = req.query;
 
       const query = {};
-      if (status !== "all") query.status = status;
+      if (status !== "all") {
+        const statuses = status.split(",").map(s => s.trim()).filter(Boolean);
+        query.status = statuses.length === 1 ? statuses[0] : { $in: statuses };
+      }
       if (startDate || endDate) {
         query.createdAt = {};
         if (startDate) query.createdAt.$gte = new Date(startDate);
@@ -917,7 +920,10 @@ const adminController = {
       } = req.query;
 
       const query = {};
-      if (status !== "all") query.status = status;
+      if (status !== "all") {
+        const statuses = status.split(",").map(s => s.trim()).filter(Boolean);
+        query.status = statuses.length === 1 ? statuses[0] : { $in: statuses };
+      }
       if (startDate || endDate) {
         query.createdAt = {};
         if (startDate) query.createdAt.$gte = new Date(startDate);
