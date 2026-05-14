@@ -1,5 +1,8 @@
 const { donationModle } = require("../models/donation.model");
 const { settingsModel } = require("../models/settings.model");
+const receiptService = require("../services/receipt.service");
+const whatsappService = require("../services/whatsapp.service");
+const externalDonationService = require("../services/externalDonation.service");
 
 const adminController = {
   getUtmStats: async (req, res) => {
@@ -1007,6 +1010,69 @@ const adminController = {
       res
         .status(500)
         .json({ success: false, message: "Failed to export transactions" });
+    }
+  },
+  resendReceipt: async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      // Find by donation _id or by mobile number
+      const donation = await donationModle.findOne({
+        $or: [
+          { _id: id.match(/^[a-f\d]{24}$/i) ? id : null },
+          { mobile: id },
+        ],
+        status: { $in: ["paid", "active", "completed"] },
+      }).sort({ createdAt: -1 });
+
+      if (!donation) {
+        return res.status(404).json({ success: false, message: "Donation not found" });
+      }
+
+      // Call BCC API if not already done
+      let apiResponse = donation.externalApiResponse || null;
+      if (!apiResponse) {
+        try {
+          apiResponse = await externalDonationService.sendToExternalApi(donation, {
+            id: donation.razorpayPaymentId,
+          });
+          await donationModle.findByIdAndUpdate(donation._id, {
+            $set: {
+              externalApiResponse: apiResponse,
+              externalApiSentAt: new Date(),
+              donorNumber: apiResponse?.DonorNumber || "",
+            },
+          });
+          console.log("✅ BCC API resend done:", apiResponse?.ReceiptNumber);
+        } catch (apiErr) {
+          console.error("⚠️ BCC API resend error:", apiErr.message);
+        }
+      }
+
+      // Generate receipt
+      const filePath = await receiptService.generateReceipt(donation, apiResponse);
+
+      // Send WhatsApp
+      let phone = donation.mobile.replace(/\D/g, "");
+      if (!phone.startsWith("91")) phone = `91${phone}`;
+      await whatsappService.sendReceiptWhatsapp(
+        phone,
+        filePath,
+        donation.name,
+        donation.amount,
+        donation.isRecurring ? "subscription" : "normal",
+      );
+
+      return res.status(200).json({
+        success: true,
+        message: `Receipt sent to ${phone}`,
+        donationId: donation._id,
+        amount: donation.amount,
+        name: donation.name,
+      });
+    } catch (error) {
+      console.error("Resend receipt error:", error);
+      return res.status(500).json({ success: false, message: error.message });
     }
   },
 };

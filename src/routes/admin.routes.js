@@ -26,6 +26,7 @@ adminRouter.get("/transactions", adminController.getAllTransactions);
 adminRouter.get("/transactions/stats", adminController.getTransactionStats);
 adminRouter.get("/transactions/export", adminController.exportTransactions);
 adminRouter.get("/transactions/:id", adminController.getTransactionById);
+adminRouter.post("/transactions/:id/resend-receipt", adminController.resendReceipt);
 
 adminRouter.get("/donors", adminController.getAllDonors);
 adminRouter.get("/donors/stats", adminController.getDonorStats);
