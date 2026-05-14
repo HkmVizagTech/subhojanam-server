@@ -1028,7 +1028,7 @@ const adminController = {
   },
   registerSubscriptionCharge: async (req, res) => {
     try {
-      const { subscriptionId, razorpayPaymentId, amount } = req.body;
+      const { subscriptionId, razorpayPaymentId, amount, skipDcc } = req.body;
 
       if (!subscriptionId || !razorpayPaymentId) {
         return res.status(400).json({ success: false, message: "subscriptionId and razorpayPaymentId are required" });
@@ -1071,26 +1071,39 @@ const adminController = {
         webhookProcessedAt: new Date(),
       });
 
-      // Call DCC API
+      // Call DCC API only if not skipped
       let apiResponse = null;
-      try {
-        apiResponse = await externalDonationService.sendToExternalApi(newDonation, { id: razorpayPaymentId });
-        await donationModle.findByIdAndUpdate(newDonation._id, {
-          $set: { externalApiResponse: apiResponse, externalApiSentAt: new Date(), donorNumber: apiResponse?.DonorNumber || "" },
-        });
-      } catch (apiErr) {
-        console.error("BCC API error:", apiErr.message);
+      if (!skipDcc) {
+        try {
+          apiResponse = await externalDonationService.sendToExternalApi(newDonation, { id: razorpayPaymentId });
+          await donationModle.findByIdAndUpdate(newDonation._id, {
+            $set: { externalApiResponse: apiResponse, externalApiSentAt: new Date(), donorNumber: apiResponse?.DonorNumber || "" },
+          });
+        } catch (apiErr) {
+          console.error("BCC API error:", apiErr.message);
+        }
       }
 
-      // Generate receipt + send WhatsApp
-      const filePath = await receiptService.generateReceipt(newDonation, apiResponse);
-      let phone = newDonation.mobile.replace(/\D/g, "");
-      if (!phone.startsWith("91")) phone = `91${phone}`;
-      await whatsappService.sendReceiptWhatsapp(phone, filePath, newDonation.name, newDonation.amount, "subscription");
+      // Generate receipt + send WhatsApp only if not skipped
+      if (!skipDcc) {
+        const filePath = await receiptService.generateReceipt(newDonation, apiResponse);
+        let phone = newDonation.mobile.replace(/\D/g, "");
+        if (!phone.startsWith("91")) phone = `91${phone}`;
+        await whatsappService.sendReceiptWhatsapp(phone, filePath, newDonation.name, newDonation.amount, "subscription");
+      } else {
+        // Still generate receipt silently to set receiptGeneratedAt in DB
+        try {
+          await receiptService.generateReceipt(newDonation, null);
+        } catch (e) {
+          console.error("Silent receipt generation error:", e.message);
+        }
+      }
 
       return res.json({
         success: true,
-        message: "Subscription charge registered, receipt generated and WhatsApp sent",
+        message: skipDcc
+          ? "Donation record created. DCC and WhatsApp skipped as already done."
+          : "Subscription charge registered, DCC called, receipt generated and WhatsApp sent",
         donationId: newDonation._id,
       });
     } catch (err) {
