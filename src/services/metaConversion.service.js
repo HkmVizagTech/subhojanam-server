@@ -52,7 +52,7 @@ async function sendPurchaseEvent(donation, payment) {
   }
 
   const graphApiVersion = process.env.META_GRAPH_API_VERSION || DEFAULT_GRAPH_API_VERSION;
-  const eventSourceUrl = process.env.META_EVENT_SOURCE_URL || DEFAULT_EVENT_SOURCE_URL;
+  const eventSourceUrl = donation.pageUrl || process.env.META_EVENT_SOURCE_URL || DEFAULT_EVENT_SOURCE_URL;
   const paymentId = payment?.id || donation.razorpayPaymentId || String(donation._id);
 
   const payload = {

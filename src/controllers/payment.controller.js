@@ -23,6 +23,7 @@ function getMetaTracking(req) {
     fbc: typeof tracking.fbc === "string" ? tracking.fbc : "",
     clientIp: getClientIp(req),
     userAgent: req.get("user-agent") || "",
+    pageUrl: typeof tracking.pageUrl === "string" ? tracking.pageUrl : "",
   };
 }
 

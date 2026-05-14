@@ -37,6 +37,7 @@ const donationSchema = new mongoose.Schema(
     fbc: { type: String },
     clientIp: { type: String },
     userAgent: { type: String },
+    pageUrl: { type: String },
     metaPurchaseResponse: { type: Object },
     metaPurchaseSentAt: { type: Date },
     metaPurchaseLastError: { type: String },
