@@ -282,12 +282,18 @@ const adminController = {
         endDate,
         mahaprasadam,
         certificate,
+        hasReceipt,
       } = req.query;
 
       const query = {};
 
       if (status !== "all") {
         query.status = status;
+      }
+
+      // Filter only donations that have a receipt generated
+      if (hasReceipt === "true") {
+        query.receiptNumber = { $exists: true, $ne: null, $ne: "" };
       }
 
       if (search) {
