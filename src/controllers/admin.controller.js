@@ -1016,7 +1016,7 @@ const adminController = {
     try {
       const { id } = req.params;
 
-      // Find by donation _id or by mobile number
+      // Find by donation _id or by mobile number — most recent paid donation
       const donation = await donationModle.findOne({
         $or: [
           { _id: id.match(/^[a-f\d]{24}$/i) ? id : null },
@@ -1029,27 +1029,11 @@ const adminController = {
         return res.status(404).json({ success: false, message: "Donation not found" });
       }
 
-      // Call BCC API if not already done
-      let apiResponse = donation.externalApiResponse || null;
-      if (!apiResponse) {
-        try {
-          apiResponse = await externalDonationService.sendToExternalApi(donation, {
-            id: donation.razorpayPaymentId,
-          });
-          await donationModle.findByIdAndUpdate(donation._id, {
-            $set: {
-              externalApiResponse: apiResponse,
-              externalApiSentAt: new Date(),
-              donorNumber: apiResponse?.DonorNumber || "",
-            },
-          });
-          console.log("✅ BCC API resend done:", apiResponse?.ReceiptNumber);
-        } catch (apiErr) {
-          console.error("⚠️ BCC API resend error:", apiErr.message);
-        }
-      }
+      // IMPORTANT: Never call DCC API here — only resend existing receipt
+      // DCC API is called only once during webhook processing
+      const apiResponse = donation.externalApiResponse || null;
 
-      // Generate receipt
+      // Generate receipt using existing data
       const filePath = await receiptService.generateReceipt(donation, apiResponse);
 
       // Send WhatsApp
@@ -1065,7 +1049,7 @@ const adminController = {
 
       return res.status(200).json({
         success: true,
-        message: `Receipt sent to ${phone}`,
+        message: `Receipt resent to ${phone}`,
         donationId: donation._id,
         amount: donation.amount,
         name: donation.name,
