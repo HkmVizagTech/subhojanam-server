@@ -226,10 +226,30 @@ const webHookControler = {
             console.error("Meta error:", metaErr.message);
           }
 
-          // 5. Generate receipt + send WhatsApp
+          // 5. Call BCC external API + Generate receipt + send WhatsApp
           if (newDonation.amount >= 1) {
             try {
-              const filePath = await receiptService.generateReceipt(newDonation);
+              // Call BCC API first to get receipt number
+              let apiResponse = null;
+              try {
+                apiResponse = await externalDonationService.sendToExternalApi(
+                  newDonation,
+                  payment,
+                );
+                await donationModle.findByIdAndUpdate(newDonation._id, {
+                  $set: {
+                    externalApiResponse: apiResponse,
+                    externalApiSentAt: new Date(),
+                    donorNumber: apiResponse?.DonorNumber || "",
+                  },
+                });
+                console.log("✅ BCC API done for subscription:", apiResponse?.ReceiptNumber);
+              } catch (apiErr) {
+                console.error("⚠️ BCC API error for subscription:", apiErr.message);
+              }
+
+              // Generate receipt with apiResponse
+              const filePath = await receiptService.generateReceipt(newDonation, apiResponse);
               let phone = newDonation.mobile.replace(/\D/g, "");
               if (!phone.startsWith("91")) phone = `91${phone}`;
               await whatsappService.sendReceiptWhatsapp(
