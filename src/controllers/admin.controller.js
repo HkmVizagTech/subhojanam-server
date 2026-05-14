@@ -1026,6 +1026,79 @@ const adminController = {
         .json({ success: false, message: "Failed to export transactions" });
     }
   },
+  registerSubscriptionCharge: async (req, res) => {
+    try {
+      const { subscriptionId, razorpayPaymentId, amount } = req.body;
+
+      if (!subscriptionId || !razorpayPaymentId) {
+        return res.status(400).json({ success: false, message: "subscriptionId and razorpayPaymentId are required" });
+      }
+
+      // Check not already registered
+      const existing = await donationModle.findOne({ razorpayPaymentId });
+      if (existing) {
+        return res.status(400).json({ success: false, message: "Payment already registered", donation: existing._id });
+      }
+
+      // Find original subscription donation
+      const originalDonation = await donationModle.findOne({ subscriptionId }).sort({ createdAt: 1 });
+      if (!originalDonation) {
+        return res.status(404).json({ success: false, message: "Original subscription donation not found" });
+      }
+
+      // Create new donation record
+      const newDonation = await donationModle.create({
+        name: originalDonation.name,
+        email: originalDonation.email,
+        mobile: originalDonation.mobile,
+        amount: amount || originalDonation.amount,
+        certificate: originalDonation.certificate,
+        panNumber: originalDonation.panNumber,
+        address: originalDonation.address,
+        city: originalDonation.city,
+        state: originalDonation.state,
+        pincode: originalDonation.pincode,
+        occasion: originalDonation.occasion,
+        mahaprasadam: originalDonation.mahaprasadam,
+        prasadamAddressOption: originalDonation.prasadamAddressOption,
+        prasadamAddress: originalDonation.prasadamAddress,
+        utm: originalDonation.utm,
+        subscriptionId,
+        isRecurring: true,
+        razorpayPaymentId,
+        status: "paid",
+        webhookProcessed: true,
+        webhookProcessedAt: new Date(),
+      });
+
+      // Call DCC API
+      let apiResponse = null;
+      try {
+        apiResponse = await externalDonationService.sendToExternalApi(newDonation, { id: razorpayPaymentId });
+        await donationModle.findByIdAndUpdate(newDonation._id, {
+          $set: { externalApiResponse: apiResponse, externalApiSentAt: new Date(), donorNumber: apiResponse?.DonorNumber || "" },
+        });
+      } catch (apiErr) {
+        console.error("BCC API error:", apiErr.message);
+      }
+
+      // Generate receipt + send WhatsApp
+      const filePath = await receiptService.generateReceipt(newDonation, apiResponse);
+      let phone = newDonation.mobile.replace(/\D/g, "");
+      if (!phone.startsWith("91")) phone = `91${phone}`;
+      await whatsappService.sendReceiptWhatsapp(phone, filePath, newDonation.name, newDonation.amount, "subscription");
+
+      return res.json({
+        success: true,
+        message: "Subscription charge registered, receipt generated and WhatsApp sent",
+        donationId: newDonation._id,
+      });
+    } catch (err) {
+      console.error("registerSubscriptionCharge error:", err);
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  },
+
   receiptDebug: async (req, res) => {
     try {
       const total = await donationModle.countDocuments({});
