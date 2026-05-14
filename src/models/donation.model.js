@@ -90,7 +90,8 @@ const donationSchema = new mongoose.Schema(
     versionKey: false,
   },
 );
-donationSchema.index({ razorpayOrderId: 1 }, { unique: true });
+donationSchema.index({ razorpayOrderId: 1 }, { unique: true, sparse: true });
+donationSchema.index({ razorpayPaymentId: 1 }, { unique: true, sparse: true });
 donationSchema.index({ receiptGeneratedAt: 1 });
 
 const donationModle = mongoose.model("Donation", donationSchema);
