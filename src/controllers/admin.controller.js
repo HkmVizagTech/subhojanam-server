@@ -1112,6 +1112,21 @@ const adminController = {
     }
   },
 
+  markReceiptGenerated: async (req, res) => {
+    try {
+      const { id } = req.params;
+      const donation = await donationModle.findByIdAndUpdate(
+        id,
+        { $set: { receiptGeneratedAt: new Date() } },
+        { new: true }
+      );
+      if (!donation) return res.status(404).json({ success: false, message: "Donation not found" });
+      return res.json({ success: true, message: "receiptGeneratedAt set", donationId: donation._id });
+    } catch (err) {
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  },
+
   receiptDebug: async (req, res) => {
     try {
       const total = await donationModle.countDocuments({});

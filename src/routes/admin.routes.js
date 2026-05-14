@@ -25,6 +25,7 @@ adminRouter.get("/dashboard/monthly-trends", adminController.getMonthlyTrends);
 adminRouter.get("/transactions", adminController.getAllTransactions);
 adminRouter.get("/transactions/receipt-debug", adminController.receiptDebug);
 adminRouter.post("/transactions/register-subscription-charge", adminController.registerSubscriptionCharge);
+adminRouter.patch("/transactions/:id/mark-receipt-generated", adminController.markReceiptGenerated);
 adminRouter.get("/transactions/stats", adminController.getTransactionStats);
 adminRouter.get("/transactions/export", adminController.exportTransactions);
 adminRouter.get("/transactions/:id", adminController.getTransactionById);
