@@ -1115,13 +1115,37 @@ const adminController = {
   markReceiptGenerated: async (req, res) => {
     try {
       const { id } = req.params;
-      const donation = await donationModle.findByIdAndUpdate(
-        id,
-        { $set: { receiptGeneratedAt: new Date() } },
-        { new: true }
-      );
+
+      let donation = null;
+
+      // Try MongoDB _id first
+      if (id.match(/^[a-f\d]{24}$/i)) {
+        donation = await donationModle.findById(id);
+      }
+
+      // Try TXN display ID — last 6 chars of _id e.g. TXN040C25
+      if (!donation && id.toUpperCase().startsWith("TXN")) {
+        const suffix = id.slice(3).toLowerCase();
+        const all = await donationModle.find({ status: { $in: ["paid", "active", "completed"] } }).select("_id");
+        const match = all.find(d => d._id.toString().slice(-6).toLowerCase() === suffix);
+        if (match) donation = await donationModle.findById(match._id);
+      }
+
+      // Try mobile number
+      if (!donation) {
+        donation = await donationModle.findOne({
+          mobile: id,
+          status: { $in: ["paid", "active", "completed"] }
+        }).sort({ createdAt: -1 });
+      }
+
       if (!donation) return res.status(404).json({ success: false, message: "Donation not found" });
-      return res.json({ success: true, message: "receiptGeneratedAt set", donationId: donation._id });
+
+      await donationModle.findByIdAndUpdate(donation._id, {
+        $set: { receiptGeneratedAt: new Date() }
+      });
+
+      return res.json({ success: true, message: "receiptGeneratedAt set — will now show in Receipts tab", donationId: donation._id, name: donation.name, amount: donation.amount });
     } catch (err) {
       return res.status(500).json({ success: false, message: err.message });
     }
