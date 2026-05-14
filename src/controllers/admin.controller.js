@@ -323,13 +323,16 @@ const adminController = {
 
       const skip = (parseInt(page) - 1) * parseInt(limit);
 
-      const transactions = await donationModle
-        .find(query)
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(parseInt(limit));
+      const [transactions, totalTransactions, amountResult] = await Promise.all([
+        donationModle.find(query).sort({ createdAt: -1 }).skip(skip).limit(parseInt(limit)),
+        donationModle.countDocuments(query),
+        donationModle.aggregate([
+          { $match: query },
+          { $group: { _id: null, total: { $sum: "$amount" } } }
+        ]),
+      ]);
 
-      const totalTransactions = await donationModle.countDocuments(query);
+      const totalAmount = amountResult[0]?.total || 0;
 
       const formattedTransactions = transactions.map((txn) => {
         // Always include the original MongoDB _id as a string
@@ -374,6 +377,7 @@ const adminController = {
           currentPage: parseInt(page),
           totalPages: Math.ceil(totalTransactions / parseInt(limit)),
           totalTransactions,
+          totalAmount,
           limit: parseInt(limit),
         },
       });
