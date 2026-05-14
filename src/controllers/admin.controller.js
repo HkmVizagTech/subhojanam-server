@@ -288,12 +288,15 @@ const adminController = {
       const query = {};
 
       if (status !== "all") {
-        query.status = status;
+        // Support comma-separated statuses e.g. "paid,completed"
+        const statuses = status.split(",").map(s => s.trim()).filter(Boolean);
+        query.status = statuses.length === 1 ? statuses[0] : { $in: statuses };
       }
 
       // Filter only donations that have a receipt generated
       if (hasReceipt === "true") {
         query.receiptNumber = { $exists: true, $nin: [null, ""] };
+        query.amount = { $gte: 1 }; // exclude test transactions
       }
 
       if (search) {
