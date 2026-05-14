@@ -293,7 +293,7 @@ const adminController = {
 
       // Filter only donations that have a receipt generated
       if (hasReceipt === "true") {
-        query.receiptNumber = { $exists: true, $ne: null, $ne: "" };
+        query.receiptNumber = { $exists: true, $nin: [null, ""] };
       }
 
       if (search) {
