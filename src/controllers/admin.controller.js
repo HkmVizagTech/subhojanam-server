@@ -1026,6 +1026,37 @@ const adminController = {
         .json({ success: false, message: "Failed to export transactions" });
     }
   },
+  receiptDebug: async (req, res) => {
+    try {
+      const total = await donationModle.countDocuments({});
+      const paid = await donationModle.countDocuments({ status: "paid" });
+      const completed = await donationModle.countDocuments({ status: "completed" });
+      const withReceiptNumber = await donationModle.countDocuments({ receiptNumber: { $exists: true, $ne: null } });
+      const withReceiptGeneratedAt = await donationModle.countDocuments({ receiptGeneratedAt: { $exists: true, $ne: null } });
+      const paidWithReceipt = await donationModle.countDocuments({ status: "paid", receiptGeneratedAt: { $exists: true, $ne: null } });
+      const amountGte1 = await donationModle.countDocuments({ amount: { $gte: 1 } });
+
+      // Sample 3 paid donations to see their fields
+      const samples = await donationModle.find({ status: "paid" })
+        .sort({ createdAt: -1 })
+        .limit(3)
+        .select("name amount status receiptNumber receiptGeneratedAt razorpayPaymentId createdAt");
+
+      return res.json({
+        total,
+        paid,
+        completed,
+        withReceiptNumber,
+        withReceiptGeneratedAt,
+        paidWithReceipt,
+        amountGte1,
+        samples,
+      });
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  },
+
   resendReceipt: async (req, res) => {
     try {
       const { id } = req.params;
