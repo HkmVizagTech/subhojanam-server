@@ -122,8 +122,7 @@ const paymentController = {
 
       let planId;
 
-      console.log("Using KEY:", process.env.RAZORPAY_KEY_ID);
-      console.log("Using PLAN ID:", planId);
+
 
       if (amount == 500) {
         planId = process.env.RAZORPAY_PLAN_500;

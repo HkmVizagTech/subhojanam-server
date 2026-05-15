@@ -2,9 +2,10 @@
 const express = require('express');
 const router = express.Router();
 const { donationModle } = require('../models/donation.model');
+const { adminAuth } = require('../middlewares/admin.auth.middleware');
 
 // GET /api/admin/debug-donations
-router.get('/debug-donations', async (req, res) => {
+router.get('/debug-donations', adminAuth, async (req, res) => {
   try {
     const donations = await donationModle.find({}, {
       name: 1, email: 1, amount: 1, status: 1, utm: 1, createdAt: 1

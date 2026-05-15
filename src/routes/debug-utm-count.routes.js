@@ -2,9 +2,10 @@
 const express = require('express');
 const router = express.Router();
 const { donationModle } = require('../models/donation.model');
+const { adminAuth } = require('../middlewares/admin.auth.middleware');
 
 // GET /api/admin/debug-utm-count
-router.get('/debug-utm-count', async (req, res) => {
+router.get('/debug-utm-count', adminAuth, async (req, res) => {
   try {
     const utmCount = await donationModle.countDocuments({ 'utm.campaign': { $exists: true, $ne: null, $ne: '' }, status: 'paid' });
     const nonUtmCount = await donationModle.countDocuments({ $or: [ { utm: { $exists: false } }, { 'utm.campaign': { $in: [null, ''] } } ], status: 'paid' });
