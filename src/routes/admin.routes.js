@@ -4,6 +4,7 @@ const { adminController } = require("../controllers/admin.controller");
 const { adminAuth } = require("../middlewares/admin.auth.middleware");
 const { adminSubscriptionController } = require("../controllers/admin.subscription.controller");
 const campaignController = require("../controllers/campaign.controller.js");
+const { missedChargesController } = require("../controllers/missed.charges.controller");
 const adminRouter = express.Router();
 
 
@@ -47,5 +48,8 @@ adminRouter.get("/subscriptions", adminSubscriptionController.getAllSubscription
 adminRouter.get("/subscriptions/review", adminSubscriptionController.getSubscriptionsForReview);
 adminRouter.get("/subscriptions/stats", adminSubscriptionController.getSubscriptionStats);
 adminRouter.put("/subscriptions/:id/cancel", adminSubscriptionController.cancelSubscription);
+
+adminRouter.get("/subscriptions/missed-charges", missedChargesController.getMissedCharges);
+adminRouter.post("/subscriptions/register-missed-charge", missedChargesController.registerMissedCharge);
 
 module.exports = { adminRouter };
