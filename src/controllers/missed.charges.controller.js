@@ -6,6 +6,82 @@ const whatsappService = require("../services/whatsapp.service");
 
 const missedChargesController = {
 
+  getUnreceiptedCharges: async (req, res) => {
+    try {
+      const unreceipited = await donationModle.find({
+        isRecurring: true,
+        status: "paid",
+        $or: [
+          { receiptGeneratedAt: { $exists: false } },
+          { receiptGeneratedAt: null }
+        ]
+      }).sort({ createdAt: -1 });
+
+      const data = unreceipited.map(d => ({
+        donationId: d._id,
+        subscriptionId: d.subscriptionId,
+        paymentId: d.razorpayPaymentId,
+        amount: d.amount,
+        date: d.createdAt,
+        donorName: d.name,
+        donorMobile: d.mobile,
+        donorEmail: d.email,
+        hasDccResponse: !!(d.externalApiResponse),
+      }));
+
+      res.status(200).json({ success: true, count: data.length, data });
+    } catch (error) {
+      console.error("Get Unreceipted Charges Error:", error);
+      res.status(500).json({ success: false, message: error.message });
+    }
+  },
+
+  generateMissingReceipt: async (req, res) => {
+    try {
+      const { donationId } = req.body;
+      if (!donationId) return res.status(400).json({ success: false, message: "donationId required" });
+
+      const donation = await donationModle.findById(donationId);
+      if (!donation) return res.status(404).json({ success: false, message: "Donation not found" });
+
+      if (donation.receiptGeneratedAt) {
+        return res.status(400).json({ success: false, message: "Receipt already generated" });
+      }
+
+      let apiResponse = donation.externalApiResponse || null;
+      if (!apiResponse) {
+        try {
+          apiResponse = await externalDonationService.sendToExternalApi(donation, { id: donation.razorpayPaymentId });
+          await donationModle.findByIdAndUpdate(donation._id, {
+            $set: { externalApiResponse: apiResponse, externalApiSentAt: new Date(), donorNumber: apiResponse?.DonorNumber || "" },
+          });
+        } catch (apiErr) {
+          return res.status(500).json({ success: false, message: "DCC API failed: " + apiErr.message });
+        }
+      }
+
+      let filePath = null;
+      try {
+        filePath = await receiptService.generateReceipt(donation, apiResponse);
+      } catch (receiptErr) {
+        return res.status(500).json({ success: false, message: "Receipt generation failed: " + receiptErr.message });
+      }
+
+      try {
+        let phone = donation.mobile.replace(/\D/g, "");
+        if (!phone.startsWith("91")) phone = "91" + phone;
+        await whatsappService.sendReceiptWhatsapp(phone, filePath, donation.name, donation.amount, "subscription");
+      } catch (waErr) {
+        console.error("WhatsApp error (receipt already saved):", waErr.message);
+      }
+
+      return res.json({ success: true, message: "Receipt generated and WhatsApp sent", donorName: donation.name, amount: donation.amount });
+    } catch (err) {
+      console.error("Generate Missing Receipt Error:", err);
+      res.status(500).json({ success: false, message: err.message });
+    }
+  },
+
   getMissedCharges: async (req, res) => {
     try {
       const localSubs = await donationModle.find({

@@ -51,5 +51,7 @@ adminRouter.put("/subscriptions/:id/cancel", adminSubscriptionController.cancelS
 
 adminRouter.get("/subscriptions/missed-charges", missedChargesController.getMissedCharges);
 adminRouter.post("/subscriptions/register-missed-charge", missedChargesController.registerMissedCharge);
+adminRouter.get("/subscriptions/unreceipted-charges", missedChargesController.getUnreceiptedCharges);
+adminRouter.post("/subscriptions/generate-missing-receipt", missedChargesController.generateMissingReceipt);
 
 module.exports = { adminRouter };
