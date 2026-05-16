@@ -224,25 +224,39 @@ const webHookControler = {
 
             // 5. BCC API + Receipt + WhatsApp
             if (newDonation.amount >= 1) {
-              try {
-                let apiResponse = null;
-                try {
-                  apiResponse = await externalDonationService.sendToExternalApi(newDonation, payment);
-                  await donationModle.findByIdAndUpdate(newDonation._id, {
-                    $set: { externalApiResponse: apiResponse, externalApiSentAt: new Date(), donorNumber: apiResponse?.DonorNumber || "" },
-                  });
-                  console.log("✅ BCC API done for subscription:", apiResponse?.ReceiptNumber);
-                } catch (apiErr) {
-                  console.error("⚠️ BCC API error for subscription:", apiErr.message);
-                }
+              let apiResponse = null;
 
-                const filePath = await receiptService.generateReceipt(newDonation, apiResponse);
-                let phone = newDonation.mobile.replace(/\D/g, "");
-                if (!phone.startsWith("91")) phone = `91${phone}`;
-                await whatsappService.sendReceiptWhatsapp(phone, filePath, newDonation.name, newDonation.amount, "subscription");
-                console.log("✅ WhatsApp sent for subscription charge:", payment.id);
+              // 5a. DCC API — if fails, stop here
+              try {
+                apiResponse = await externalDonationService.sendToExternalApi(newDonation, payment);
+                await donationModle.findByIdAndUpdate(newDonation._id, {
+                  $set: { externalApiResponse: apiResponse, externalApiSentAt: new Date(), donorNumber: apiResponse?.DonorNumber || "" },
+                });
+                console.log("✅ BCC API done for subscription:", apiResponse?.ReceiptNumber);
+              } catch (apiErr) {
+                console.error("⚠️ BCC API error for subscription — skipping receipt and WhatsApp:", apiErr.message);
+                break;
+              }
+
+              // 5b. Receipt — only if DCC succeeded
+              let filePath = null;
+              try {
+                filePath = await receiptService.generateReceipt(newDonation, apiResponse);
+                console.log("✅ Receipt generated for subscription charge:", payment.id);
               } catch (receiptErr) {
-                console.error("Error in subscription receipt/whatsapp:", receiptErr.message);
+                console.error("⚠️ Receipt generation error for subscription:", receiptErr.message);
+              }
+
+              // 5c. WhatsApp — only if receipt generated, failure won't affect receipt
+              if (filePath) {
+                try {
+                  let phone = newDonation.mobile.replace(/\D/g, "");
+                  if (!phone.startsWith("91")) phone = `91${phone}`;
+                  await whatsappService.sendReceiptWhatsapp(phone, filePath, newDonation.name, newDonation.amount, "subscription");
+                  console.log("✅ WhatsApp sent for subscription charge:", payment.id);
+                } catch (waErr) {
+                  console.error("⚠️ WhatsApp error for subscription (receipt already saved):", waErr.message);
+                }
               }
             }
 
