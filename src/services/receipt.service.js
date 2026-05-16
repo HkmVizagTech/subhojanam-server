@@ -6,6 +6,35 @@ const { settingsModel } = require("../models/settings.model");
 const { donationModle } = require("../models/donation.model");
 const numberToWords = require("number-to-words");
 
+let sharedBrowser = null;
+
+const getBrowser = async () => {
+  if (sharedBrowser) {
+    try {
+      // Check if still alive
+      await sharedBrowser.version();
+      return sharedBrowser;
+    } catch {
+      sharedBrowser = null;
+    }
+  }
+  sharedBrowser = await puppeteer.launch({
+    headless: true,
+    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || "/usr/bin/chromium",
+    args: [
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-dev-shm-usage",
+      "--disable-gpu",
+      "--disable-software-rasterizer",
+      "--disable-extensions",
+      "--disable-crash-reporter",
+      "--crash-dumps-dir=/tmp",
+    ],
+  });
+  return sharedBrowser;
+};
+
 const generateReceipt = async (donation, apiResponse = null) => {
   try {
     console.log("Receipt generation started for donation:", donation._id);
@@ -86,41 +115,21 @@ const generateReceipt = async (donation, apiResponse = null) => {
       externalApiResponse: apiResp,
     });
 
-    const launchOptions = {
-      headless: true,
-      executablePath:
-        process.env.PUPPETEER_EXECUTABLE_PATH || "/usr/bin/chromium",
-      args: [
-        "--no-sandbox",
-        "--disable-setuid-sandbox",
-        "--disable-dev-shm-usage",
-        "--disable-gpu",
-        "--disable-software-rasterizer",
-        "--disable-extensions",
-        "--disable-crash-reporter",
-        "--crash-dumps-dir=/tmp",
-      ],
-    };
-
     const receiptsDir = process.env.RECEIPTS_DIR || "/tmp/receipts";
     if (!fs.existsSync(receiptsDir)) {
-      fs.mkdirSync(receiptsDir, { recursive: true }); // ✅ recursive
+      fs.mkdirSync(receiptsDir, { recursive: true });
     }
 
     const safeName = donation.name.replace(/\s+/g, "_");
     const filePath = path.join(receiptsDir, `Donation_Receipt_${safeName}.pdf`);
 
-    const browser = await puppeteer.launch(launchOptions);
-    console.log("✅ Browser launched");
+    const browser = await getBrowser();
+    console.log("✅ Browser ready");
 
+    const page = await browser.newPage();
+    console.log("✅ New page created");
     try {
-      const page = await browser.newPage();
-      console.log("✅ New page created");
-
-      await page.setContent(html, {
-        waitUntil: "networkidle0",
-        timeout: 30000,
-      });
+      await page.setContent(html, { waitUntil: "networkidle0", timeout: 30000 });
       console.log("✅ Content set");
 
       await page.pdf({
@@ -131,8 +140,8 @@ const generateReceipt = async (donation, apiResponse = null) => {
       });
       console.log("✅ PDF written to disk");
     } finally {
-      await browser.close();
-      console.log("✅ Browser closed");
+      await page.close();
+      console.log("✅ Page closed");
     }
 
     // ✅ Only saved AFTER pdf is confirmed written
