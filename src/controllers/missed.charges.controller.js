@@ -10,7 +10,7 @@ const missedChargesController = {
     try {
       const unreceipited = await donationModle.find({
         isRecurring: true,
-        status: "paid",
+        status: { $in: ["paid", "active", "completed"] },
         $or: [
           { receiptGeneratedAt: { $exists: false } },
           { receiptGeneratedAt: null }
