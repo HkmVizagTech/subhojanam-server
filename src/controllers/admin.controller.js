@@ -43,6 +43,23 @@ const adminController = {
         .json({ success: false, message: "Failed to fetch UTM stats" });
     }
   },
+  getUtmTransactions: async (req, res) => {
+    try {
+      const { campaign, source, medium } = req.query;
+      const match = { status: { $in: ["paid", "active", "completed"] } };
+      if (campaign) match["utm.campaign"] = campaign === "direct" ? { $in: [null, ""] } : campaign;
+      if (source) match["utm.source"] = source === "direct" ? { $in: [null, ""] } : source;
+      if (medium) match["utm.medium"] = medium === "none" ? { $in: [null, ""] } : medium;
+      const transactions = await donationModle.find(match)
+        .sort({ createdAt: -1 }).limit(200)
+        .select("name email mobile amount status createdAt utm receiptNumber isRecurring razorpayPaymentId");
+      res.status(200).json({ success: true, count: transactions.length, transactions });
+    } catch (error) {
+      console.error("UTM transactions error:", error);
+      res.status(500).json({ success: false, message: "Failed to fetch UTM transactions" });
+    }
+  },
+
   getDashboardStats: async (req, res) => {
     try {
       const now = new Date();
@@ -373,6 +390,7 @@ const adminController = {
           subscriptionId: txn.subscriptionId,
           donorNumber: txn.donorNumber,
           externalApiResponse: txn.externalApiResponse,
+          utm: txn.utm,
         };
       });
 

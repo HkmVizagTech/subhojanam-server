@@ -9,6 +9,7 @@ const adminRouter = express.Router();
 
 
 adminRouter.get("/utm-stats", adminController.getUtmStats);
+adminRouter.get("/utm-transactions", adminController.getUtmTransactions);
 
 
 

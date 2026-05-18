@@ -27,6 +27,8 @@ const donationSchema = new mongoose.Schema(
       default: "same",
     },
     prasadamAddress: String,
+    prasadamName: String,
+    prasadamMobile: String,
 
     receiptNumber: { type: String },
     donorNumber: { type: String, default: "" },

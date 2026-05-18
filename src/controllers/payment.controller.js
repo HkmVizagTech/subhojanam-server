@@ -47,6 +47,8 @@ const paymentController = {
         mahaprasadam,
         prasadamAddressOption,
         prasadamAddress,
+        prasadamName,
+        prasadamMobile,
       } = req.body;
 
       if (!amount || amount < 1) {
@@ -79,6 +81,8 @@ const paymentController = {
         mahaprasadam,
         prasadamAddressOption,
         prasadamAddress,
+        prasadamName,
+        prasadamMobile,
         ...getMetaTracking(req),
         razorpayOrderId: order.id,
         ...(req.body.utm ? { utm: req.body.utm } : {}),
@@ -114,6 +118,8 @@ const paymentController = {
         mahaprasadam,
         prasadamAddressOption,
         prasadamAddress,
+        prasadamName,
+        prasadamMobile,
       } = req.body;
 
       if (!amount || amount < 1) {
@@ -185,6 +191,8 @@ const paymentController = {
         mahaprasadam,
         prasadamAddressOption,
         prasadamAddress,
+        prasadamName,
+        prasadamMobile,
         subscriptionId: subscription.id,
         isRecurring: true,
         status: "created",
