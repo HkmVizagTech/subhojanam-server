@@ -10,10 +10,6 @@ const webHookControler = {
     try {
       const signature = req.headers["x-razorpay-signature"];
       const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
-      console.log(
-        "ENV RAZORPAY_WEBHOOK_SECRET:",
-        process.env.RAZORPAY_WEBHOOK_SECRET,
-      );
 
       if (!webhookSecret) {
         return res.status(500).send("Webhook secret not configured");
@@ -30,12 +26,9 @@ const webHookControler = {
         .digest("hex");
 
       if (expectedSignature !== signature) {
-        console.log("Signature mismatch");
+        console.warn("Webhook signature mismatch — rejecting request");
         return res.status(400).send("Invalid signature");
       }
-
-      console.log("Received signature:", signature);
-      console.log("Generated signature:", expectedSignature);
 
       const event = JSON.parse(body);
       console.log("Webhook Event:", event.event);

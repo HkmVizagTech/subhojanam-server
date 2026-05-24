@@ -1,7 +1,10 @@
 const jwt = require("jsonwebtoken");
 const { Admin } = require("../models/admin.model");
 
-const JWT_SECRET = process.env.JWT_SECRET || "your-super-secret-jwt-key-change-in-production";
+if (!process.env.JWT_SECRET) {
+  throw new Error("JWT_SECRET environment variable is required");
+}
+const JWT_SECRET = process.env.JWT_SECRET;
 
 const adminAuth = async (req, res, next) => {
   try {
