@@ -148,10 +148,17 @@ const { paymentRouter } = require("./src/routes/payment.routes");
 const { adminRouter } = require("./src/routes/admin.routes");
 const authRouter = require("./src/routes/auth.routes");
 const cors = require("cors");
+const helmet = require("helmet");
 const { donationModle } = require("./src/models/donation.model");
 const { sendPendingWhatsapp } = require("./src/services/whatsapp.service");
 
 const app = express();
+
+// Security headers — protects against clickjacking, MIME sniffing, etc.
+app.use(helmet({
+  contentSecurityPolicy: false, // Disabled to avoid breaking inline scripts/frontend
+  crossOriginResourcePolicy: { policy: "cross-origin" }, // Allow frontend cross-origin
+}));
 
 // CORS configuration - FIXED (you had duplicate origin)
 app.use(
@@ -186,7 +193,7 @@ app.post(
 );
 
 // Regular middleware
-app.use(express.json());
+app.use(express.json({ limit: "100kb" }));
 app.use(cookieParser());
 
 // Routes
