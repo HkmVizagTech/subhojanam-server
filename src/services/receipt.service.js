@@ -120,7 +120,7 @@ const generateReceipt = async (donation, apiResponse = null) => {
       fs.mkdirSync(receiptsDir, { recursive: true });
     }
 
-    const safeName = donation.name.replace(/\s+/g, "_");
+    const safeName = donation.name.replace(/[^a-zA-Z0-9]/g, "_").replace(/_+/g, "_").slice(0, 50);
     const filePath = path.join(receiptsDir, `Donation_Receipt_${safeName}.pdf`);
 
     const browser = await getBrowser();
