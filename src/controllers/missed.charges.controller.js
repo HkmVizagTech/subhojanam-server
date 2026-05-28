@@ -26,8 +26,10 @@ const missedChargesController = {
         donorName: d.name,
         donorMobile: d.mobile,
         donorEmail: d.email,
-        hasDccResponse: !!(d.externalApiResponse),
+        hasDccResponse: !!(d.externalApiResponse && d.externalApiResponse.ReceiptNumber),
+        receiptNumber: d.externalApiResponse?.ReceiptNumber || null,
         type: d.isRecurring ? "Monthly" : "One-time",
+        status: (d.externalApiResponse && d.externalApiResponse.ReceiptNumber) ? "pdf_missing" : "unprocessed",
       }));
 
       res.status(200).json({ success: true, count: data.length, data });
