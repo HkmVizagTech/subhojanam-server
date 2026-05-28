@@ -1265,6 +1265,45 @@ const adminController = {
       return res.status(500).json({ success: false, message: error.message });
     }
   },
+
+  getReceiptsHealthCheck: async (req, res) => {
+    try {
+      const match = { status: { $in: ["paid", "active", "completed"] }, amount: { $gte: 1 } };
+
+      const totalPaid = await donationModle.countDocuments(match);
+      const totalAmountResult = await donationModle.aggregate([
+        { $match: match },
+        { $group: { _id: null, sum: { $sum: "$amount" } } }
+      ]);
+      const totalAmount = totalAmountResult[0]?.sum || 0;
+
+      const withReceipts = await donationModle.countDocuments({
+        ...match,
+        receiptNumber: { $exists: true, $ne: null }
+      });
+      const receiptAmountResult = await donationModle.aggregate([
+        { $match: { ...match, receiptNumber: { $exists: true, $ne: null } } },
+        { $group: { _id: null, sum: { $sum: "$amount" } } }
+      ]);
+      const receiptAmount = receiptAmountResult[0]?.sum || 0;
+
+      res.json({
+        success: true,
+        health: {
+          totalPaid,
+          totalAmount,
+          withReceipts,
+          receiptAmount,
+          missing: totalPaid - withReceipts,
+          missingAmount: totalAmount - receiptAmount,
+          receiptPercentage: totalPaid > 0 ? ((withReceipts / totalPaid) * 100).toFixed(1) : "N/A"
+        }
+      });
+    } catch (error) {
+      console.error("Health check error:", error);
+      res.status(500).json({ success: false, message: error.message });
+    }
+  },
 };
 
 module.exports = { adminController };

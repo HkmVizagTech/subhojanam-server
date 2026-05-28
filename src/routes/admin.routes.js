@@ -30,6 +30,8 @@ adminRouter.post("/transactions/register-subscription-charge", adminController.r
 adminRouter.patch("/transactions/:id/mark-receipt-generated", adminController.markReceiptGenerated);
 adminRouter.get("/transactions/stats", adminController.getTransactionStats);
 adminRouter.get("/transactions/export", adminController.exportTransactions);
+adminRouter.get("/transactions/all-unreceipted", missedChargesController.getAllUnreceiptedCharges);
+adminRouter.get("/receipts/health-check", adminController.getReceiptsHealthCheck);
 adminRouter.get("/transactions/:id", adminController.getTransactionById);
 adminRouter.post("/transactions/:id/resend-receipt", adminController.resendReceipt);
 
