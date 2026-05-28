@@ -6,6 +6,37 @@ const whatsappService = require("../services/whatsapp.service");
 
 const missedChargesController = {
 
+  getAllUnreceiptedCharges: async (req, res) => {
+    try {
+      const unreceipited = await donationModle.find({
+        status: { $in: ["paid", "active", "completed"] },
+        amount: { $gte: 1 },
+        $or: [
+          { receiptGeneratedAt: { $exists: false } },
+          { receiptGeneratedAt: null }
+        ]
+      }).sort({ createdAt: -1 });
+
+      const data = unreceipited.map(d => ({
+        donationId: d._id,
+        subscriptionId: d.subscriptionId || null,
+        paymentId: d.razorpayPaymentId,
+        amount: d.amount,
+        date: d.createdAt,
+        donorName: d.name,
+        donorMobile: d.mobile,
+        donorEmail: d.email,
+        hasDccResponse: !!(d.externalApiResponse),
+        type: d.isRecurring ? "Monthly" : "One-time",
+      }));
+
+      res.status(200).json({ success: true, count: data.length, data });
+    } catch (error) {
+      console.error("Get All Unreceipted Charges Error:", error);
+      res.status(500).json({ success: false, message: error.message });
+    }
+  },
+
   getUnreceiptedCharges: async (req, res) => {
     try {
       const unreceipited = await donationModle.find({
