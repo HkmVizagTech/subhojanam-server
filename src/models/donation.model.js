@@ -86,6 +86,10 @@ const donationSchema = new mongoose.Schema(
 
     webhookProcessedAt: { type: Date },
     webhookProcessed: { type: Boolean, default: false },
+
+    donationSource: { type: String, enum: ["online", "offline"], default: "online" },
+    offlineRefNo: { type: String },
+    offlinePaymentMode: { type: String, enum: ["phonepe", "bank_transfer", "cash", "cheque", "upi", "other"] },
   },
   {
     timestamps: true,

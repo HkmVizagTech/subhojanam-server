@@ -300,9 +300,17 @@ const adminController = {
         mahaprasadam,
         certificate,
         hasReceipt,
+        source,
       } = req.query;
 
       const query = {};
+
+      // Filter by donation source (online/offline/all)
+      if (source === "online") {
+        query.$or = [{ donationSource: "online" }, { donationSource: { $exists: false } }, { donationSource: null }];
+      } else if (source === "offline") {
+        query.donationSource = "offline";
+      }
 
       if (status !== "all") {
         // Support comma-separated statuses e.g. "paid,completed"
@@ -391,6 +399,9 @@ const adminController = {
           donorNumber: txn.donorNumber,
           externalApiResponse: txn.externalApiResponse,
           utm: txn.utm,
+          donationSource: txn.donationSource || "online",
+          offlineRefNo: txn.offlineRefNo,
+          offlinePaymentMode: txn.offlinePaymentMode,
         };
       });
 

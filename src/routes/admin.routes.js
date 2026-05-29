@@ -5,6 +5,7 @@ const { adminAuth } = require("../middlewares/admin.auth.middleware");
 const { adminSubscriptionController } = require("../controllers/admin.subscription.controller");
 const campaignController = require("../controllers/campaign.controller.js");
 const { missedChargesController } = require("../controllers/missed.charges.controller");
+const { offlineDonationController } = require("../controllers/offline.donation.controller");
 const adminRouter = express.Router();
 
 
@@ -27,6 +28,7 @@ adminRouter.get("/dashboard/monthly-trends", adminController.getMonthlyTrends);
 adminRouter.get("/transactions", adminController.getAllTransactions);
 adminRouter.get("/transactions/receipt-debug", adminController.receiptDebug);
 adminRouter.post("/transactions/register-subscription-charge", adminController.registerSubscriptionCharge);
+adminRouter.post("/transactions/offline", offlineDonationController.createOfflineDonation);
 adminRouter.patch("/transactions/:id/mark-receipt-generated", adminController.markReceiptGenerated);
 adminRouter.get("/transactions/stats", adminController.getTransactionStats);
 adminRouter.get("/transactions/export", adminController.exportTransactions);
