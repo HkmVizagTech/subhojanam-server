@@ -310,6 +310,13 @@ const adminController = {
         query.$or = [{ donationSource: "online" }, { donationSource: { $exists: false } }, { donationSource: null }];
       } else if (source === "offline") {
         query.donationSource = "offline";
+      } else {
+        // Default "all" — hide offline donations where showInTransactions is false
+        query.$or = [
+          { donationSource: { $in: ["online", null, undefined] } },
+          { donationSource: { $exists: false } },
+          { donationSource: "offline", showInTransactions: true },
+        ];
       }
 
       if (status !== "all") {

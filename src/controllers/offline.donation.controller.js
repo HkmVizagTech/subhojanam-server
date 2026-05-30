@@ -12,7 +12,7 @@ const offlineDonationController = {
         amount, offlineRefNo, offlinePaymentMode, paymentDate,
         certificate, panNumber,
         address, city, state, pincode,
-        occasion,
+        occasion, showInTransactions,
       } = req.body;
 
       if (!name || !mobile || !amount || !offlineRefNo) {
@@ -33,6 +33,7 @@ const offlineDonationController = {
         offlineRefNo,
         offlinePaymentMode: offlinePaymentMode || "other",
         donationSource: "offline",
+        showInTransactions: showInTransactions !== false,
         certificate: certificate || false,
         panNumber: panNumber || "",
         address: address || "",
