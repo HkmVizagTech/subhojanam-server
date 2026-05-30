@@ -221,7 +221,7 @@
         <div class="title-row">
           <h2>DONATION RECEIPT</h2>
           <div class="dr-no">
-            <p>Ref No. <span class="bold"><%= receiptNumber %></span></p>
+            <p>DR No. <span class="bold"><%= receiptNumber %></span></p>
           </div>
         </div>
 
@@ -235,7 +235,7 @@
 
           <div class="flex-gap">
             <p>
-              Donor ID :
+              Reference(Patronship No) :
               <span class="bold"><%= donorNumber || patronId || 'N/A' %></span>
             </p>
             <p style="margin-left: 150px">Sevak Name : <%= sevakName %></p>
@@ -274,9 +274,12 @@
 
           <div class="flex-gap">
             <p>Bank :</p>
-            <!-- <p class="ml-80">Enrolled by <span class="bold">RVRD</span></p> -->
-            <p style="margin-left: 135px">
-              Towards : <span class="bold">Annadana Seva</span>
+            <p style="margin-left: 80px">
+              Enrolled by <span class="bold"><%= enrolledBy || '' %></span>
+              &nbsp;&nbsp; CDC <span class="bold"><%= cdc || '' %></span>
+            </p>
+            <p style="margin-left: 55px">
+              Towards : <span class="bold">Annadanam</span>
             </p>
           </div>
         </div>
