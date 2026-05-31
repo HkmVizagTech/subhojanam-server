@@ -29,6 +29,9 @@ const donationSchema = new mongoose.Schema(
     prasadamAddress: String,
     prasadamName: String,
     prasadamMobile: String,
+    prasadamCity: String,
+    prasadamState: String,
+    prasadamPincode: String,
 
     receiptNumber: { type: String },
     donorNumber: { type: String, default: "" },
