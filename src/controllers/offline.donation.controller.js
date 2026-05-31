@@ -13,6 +13,7 @@ const offlineDonationController = {
         certificate, panNumber,
         address, city, state, pincode,
         occasion, showInTransactions,
+        mahaprasadam, prasadamAddressOption, prasadamName, prasadamMobile, prasadamAddress,
       } = req.body;
 
       if (!name || !mobile || !amount || !offlineRefNo) {
@@ -34,6 +35,11 @@ const offlineDonationController = {
         offlinePaymentMode: offlinePaymentMode || "other",
         donationSource: "offline",
         showInTransactions: showInTransactions !== false,
+        mahaprasadam: mahaprasadam || false,
+        prasadamAddressOption: prasadamAddressOption || "same",
+        prasadamName: prasadamName || "",
+        prasadamMobile: prasadamMobile || "",
+        prasadamAddress: prasadamAddress || "",
         certificate: certificate || false,
         panNumber: panNumber || "",
         address: address || "",
