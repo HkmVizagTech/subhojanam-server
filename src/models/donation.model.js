@@ -93,6 +93,7 @@ const donationSchema = new mongoose.Schema(
     donationSource: { type: String, enum: ["online", "offline"], default: "online" },
     offlineRefNo: { type: String },
     offlinePaymentMode: { type: String, enum: ["phonepe", "bank_transfer", "cash", "cheque", "upi", "other"] },
+    sevakName: { type: String, default: "" },
     showInTransactions: { type: Boolean, default: true },
   },
   {

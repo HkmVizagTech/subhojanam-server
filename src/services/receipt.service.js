@@ -100,7 +100,7 @@ const generateReceipt = async (donation, apiResponse = null) => {
       donorName: donation.name || "Donor",
       address: address || "N/A",
       patronId: "",
-      sevakName: "",
+      sevakName: donation.sevakName || "",
       donorNumber: apiResp?.DonorNumber || "",
       mobile: donation.mobile || "",
       certificate: donation.certificate === true ? "YES" : "NO",

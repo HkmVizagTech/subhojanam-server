@@ -15,6 +15,7 @@ const offlineDonationController = {
         occasion, showInTransactions,
         mahaprasadam, prasadamAddressOption, prasadamName, prasadamMobile, prasadamAddress,
         prasadamCity, prasadamState, prasadamPincode,
+        sevakName,
       } = req.body;
 
       if (!name || !mobile || !amount || !offlineRefNo) {
@@ -51,6 +52,7 @@ const offlineDonationController = {
         state: state || "",
         pincode: pincode || "",
         occasion: occasion || "",
+        sevakName: sevakName || "",
         status: "paid",
         webhookProcessed: true,
         webhookProcessedAt: new Date(),
