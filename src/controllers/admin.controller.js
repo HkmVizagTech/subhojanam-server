@@ -433,17 +433,42 @@ const adminController = {
 
   getTransactionStats: async (req, res) => {
     try {
-      const { startDate, endDate, status = "all" } = req.query;
+      const { startDate, endDate, status = "all", search, mahaprasadam, certificate, source } = req.query;
 
       const query = {};
+
       if (status !== "all") {
         const statuses = status.split(",").map(s => s.trim()).filter(Boolean);
         query.status = statuses.length === 1 ? statuses[0] : { $in: statuses };
       }
+
       if (startDate || endDate) {
         query.createdAt = {};
         if (startDate) query.createdAt.$gte = new Date(startDate);
         if (endDate) { const end = new Date(endDate); end.setHours(23,59,59,999); query.createdAt.$lte = end; }
+      }
+
+      if (search) {
+        query.$or = [
+          { name: { $regex: search, $options: "i" } },
+          { mobile: { $regex: search, $options: "i" } },
+          { email: { $regex: search, $options: "i" } },
+          { razorpayPaymentId: { $regex: search, $options: "i" } },
+        ];
+      }
+
+      if (typeof mahaprasadam !== "undefined") {
+        query.mahaprasadam = mahaprasadam === "true" || mahaprasadam === true;
+      }
+
+      if (typeof certificate !== "undefined") {
+        query.certificate = certificate === "true" || certificate === true;
+      }
+
+      if (source === "online") {
+        query.$or = [{ donationSource: "online" }, { donationSource: { $exists: false } }, { donationSource: null }];
+      } else if (source === "offline") {
+        query.donationSource = "offline";
       }
 
       const stats = await donationModle.aggregate([
