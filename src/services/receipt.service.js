@@ -11,7 +11,6 @@ let sharedBrowser = null;
 const getBrowser = async () => {
   if (sharedBrowser) {
     try {
-      // Check if still alive
       await sharedBrowser.version();
       return sharedBrowser;
     } catch {
@@ -33,6 +32,33 @@ const getBrowser = async () => {
     ],
   });
   return sharedBrowser;
+};
+
+const generatePDF = async (html, filePath) => {
+  // Try up to 2 times — on failure, reset browser and retry once
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    let page = null;
+    try {
+      const browser = await getBrowser();
+      page = await browser.newPage();
+      await page.setContent(html, { waitUntil: "networkidle0", timeout: 30000 });
+      await page.pdf({
+        path: filePath,
+        format: "A4",
+        printBackground: true,
+        margin: { top: 0, right: 0, bottom: 0, left: 0 },
+      });
+      return; // success
+    } catch (err) {
+      console.error(`PDF attempt ${attempt} failed:`, err.message);
+      // Reset browser so next attempt gets a fresh one
+      try { await sharedBrowser?.close(); } catch {}
+      sharedBrowser = null;
+      if (attempt === 2) throw err; // rethrow on second failure
+    } finally {
+      try { await page?.close(); } catch {}
+    }
+  }
 };
 
 const generateReceipt = async (donation, apiResponse = null) => {
@@ -125,26 +151,8 @@ const generateReceipt = async (donation, apiResponse = null) => {
     const safeName = donation.name.replace(/[^a-zA-Z0-9]/g, "_").replace(/_+/g, "_").slice(0, 50);
     const filePath = path.join(receiptsDir, `Donation_Receipt_${safeName}.pdf`);
 
-    const browser = await getBrowser();
-    console.log("✅ Browser ready");
-
-    const page = await browser.newPage();
-    console.log("✅ New page created");
-    try {
-      await page.setContent(html, { waitUntil: "networkidle0", timeout: 30000 });
-      console.log("✅ Content set");
-
-      await page.pdf({
-        path: filePath,
-        format: "A4",
-        printBackground: true,
-        margin: { top: 0, right: 0, bottom: 0, left: 0 },
-      });
-      console.log("✅ PDF written to disk");
-    } finally {
-      await page.close();
-      console.log("✅ Page closed");
-    }
+    await generatePDF(html, filePath);
+    console.log("✅ PDF written to disk");
 
     // ✅ Only saved AFTER pdf is confirmed written
     await donationModle.findByIdAndUpdate(donation._id, {
