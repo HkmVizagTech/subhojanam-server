@@ -36,7 +36,6 @@ adminRouter.get("/transactions/all-unreceipted", missedChargesController.getAllU
 adminRouter.get("/receipts/health-check", adminController.getReceiptsHealthCheck);
 adminRouter.get("/transactions/:id", adminController.getTransactionById);
 adminRouter.post("/transactions/:id/resend-receipt", adminController.resendReceipt);
-adminRouter.delete("/transactions/bulk-delete", adminController.deleteTransactions);
 
 adminRouter.get("/donors", adminController.getAllDonors);
 adminRouter.get("/donors/stats", adminController.getDonorStats);
