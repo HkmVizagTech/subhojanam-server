@@ -1347,6 +1347,20 @@ const adminController = {
       res.status(500).json({ success: false, message: error.message });
     }
   },
+
+  deleteTransactions: async (req, res) => {
+    try {
+      const { paymentIds } = req.body;
+      if (!paymentIds || !Array.isArray(paymentIds) || paymentIds.length === 0) {
+        return res.status(400).json({ success: false, message: "paymentIds array required" });
+      }
+      const result = await donationModle.deleteMany({ razorpayPaymentId: { $in: paymentIds } });
+      res.json({ success: true, deleted: result.deletedCount, paymentIds });
+    } catch (error) {
+      console.error("Delete transactions error:", error);
+      res.status(500).json({ success: false, message: error.message });
+    }
+  },
 };
 
 module.exports = { adminController };
