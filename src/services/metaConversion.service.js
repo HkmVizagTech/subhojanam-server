@@ -46,7 +46,11 @@ function buildUserData(donation) {
   if (donation.state) userData.st = [hash(donation.state.toLowerCase().replace(/\s+/g, ""))];
   if (donation.pincode) userData.zp = [hash(donation.pincode.trim())];
 
-  if (donation.fbp) userData.fbp = donation.fbp;
+  // Date of birth — Meta expects YYYYMMDD format, hashed
+  if (donation.dob) {
+    const dob = donation.dob.replace(/-/g, ""); // "2000-01-25" → "20000125"
+    if (dob.length === 8) userData.db = [hash(dob)];
+  }
   if (donation.fbc) userData.fbc = donation.fbc;
   if (donation.clientIp) {
     const ip = donation.clientIp.startsWith("::ffff:")
