@@ -58,6 +58,21 @@ async function sendPurchaseEvent(donation, payment) {
   const payload = {
     data: [
       {
+        event_name: "Donate",
+        event_time: Math.floor(Date.now() / 1000),
+        event_id: `donate_${paymentId}`,
+        action_source: "website",
+        event_source_url: eventSourceUrl,
+        user_data: buildUserData(donation),
+        custom_data: {
+          currency: "INR",
+          value: Number(donation.amount) || 0,
+          content_name: "Annadana Seva",
+          content_category: "religious_charity",
+          order_id: donation.razorpayOrderId,
+        },
+      },
+      {
         event_name: "Purchase",
         event_time: Math.floor(Date.now() / 1000),
         event_id: paymentId,
