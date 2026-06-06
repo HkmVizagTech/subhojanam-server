@@ -33,7 +33,13 @@ function buildUserData(donation) {
   if (phoneHash) userData.ph = [phoneHash];
   if (donation.fbp) userData.fbp = donation.fbp;
   if (donation.fbc) userData.fbc = donation.fbc;
-  if (donation.clientIp) userData.client_ip_address = donation.clientIp;
+  if (donation.clientIp) {
+    // Send IPv6 if available, strip IPv4-mapped prefix (::ffff:) for clean IPv4
+    const ip = donation.clientIp.startsWith("::ffff:")
+      ? donation.clientIp.replace("::ffff:", "")
+      : donation.clientIp;
+    userData.client_ip_address = ip;
+  }
   if (donation.userAgent) userData.client_user_agent = donation.userAgent;
 
   return userData;

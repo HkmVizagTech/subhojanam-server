@@ -9,10 +9,17 @@ require("dotenv").config();
 function getClientIp(req) {
   const forwardedFor = req.headers["x-forwarded-for"];
   if (typeof forwardedFor === "string" && forwardedFor.trim()) {
-    return forwardedFor.split(",")[0].trim();
+    const ips = forwardedFor.split(",").map(ip => ip.trim()).filter(Boolean);
+    // Prefer IPv6 (contains ':') over IPv4
+    const ipv6 = ips.find(ip => ip.includes(":") && !ip.startsWith("::ffff:"));
+    const ipv4MappedIpv6 = ips.find(ip => ip.startsWith("::ffff:"));
+    const ipv4 = ips.find(ip => !ip.includes(":"));
+    return ipv6 || ipv4MappedIpv6 || ipv4 || ips[0];
   }
 
-  return req.ip || req.socket?.remoteAddress || "";
+  const ip = req.ip || req.socket?.remoteAddress || "";
+  // Convert IPv4-mapped IPv6 (::ffff:x.x.x.x) to pure IPv6 if needed
+  return ip;
 }
 
 function getMetaTracking(req) {
