@@ -31,10 +31,24 @@ function buildUserData(donation) {
 
   if (emailHash) userData.em = [emailHash];
   if (phoneHash) userData.ph = [phoneHash];
+
+  // Name — split into first and last
+  if (donation.name) {
+    const parts = donation.name.trim().split(/\s+/);
+    const firstName = parts[0];
+    const lastName = parts.length > 1 ? parts.slice(1).join(" ") : "";
+    if (firstName) userData.fn = [hash(firstName.toLowerCase())];
+    if (lastName) userData.ln = [hash(lastName.toLowerCase())];
+  }
+
+  // Address fields
+  if (donation.city) userData.ct = [hash(donation.city.toLowerCase().replace(/\s+/g, ""))];
+  if (donation.state) userData.st = [hash(donation.state.toLowerCase().replace(/\s+/g, ""))];
+  if (donation.pincode) userData.zp = [hash(donation.pincode.trim())];
+
   if (donation.fbp) userData.fbp = donation.fbp;
   if (donation.fbc) userData.fbc = donation.fbc;
   if (donation.clientIp) {
-    // Send IPv6 if available, strip IPv4-mapped prefix (::ffff:) for clean IPv4
     const ip = donation.clientIp.startsWith("::ffff:")
       ? donation.clientIp.replace("::ffff:", "")
       : donation.clientIp;
