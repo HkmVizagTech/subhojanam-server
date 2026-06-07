@@ -59,6 +59,7 @@ const prasadamController = {
           deliveryStatus: d.prasadamDeliveryStatus || "pending",
           deliveredAt: d.prasadamDeliveredAt,
           whatsappSentAt: d.prasadamWhatsappSentAt,
+          trackingNumber: d.prasadamTrackingNumber,
         };
       });
 
@@ -81,7 +82,7 @@ const prasadamController = {
   // Mark one or more as delivered + send WhatsApp
   markDelivered: async (req, res) => {
     try {
-      const { donationIds, sendWhatsapp = true } = req.body;
+      const { donationIds, sendWhatsapp = true, trackingNumbers = {} } = req.body;
       if (!donationIds || !Array.isArray(donationIds) || donationIds.length === 0) {
         return res.status(400).json({ success: false, message: "donationIds array required" });
       }
@@ -98,6 +99,7 @@ const prasadamController = {
 
           donation.prasadamDeliveryStatus = "delivered";
           donation.prasadamDeliveredAt = new Date();
+          if (trackingNumbers[id]) donation.prasadamTrackingNumber = trackingNumbers[id];
 
           // Send WhatsApp
           if (sendWhatsapp) {
@@ -109,7 +111,7 @@ const prasadamController = {
               let phone = recipientMobile.replace(/\D/g, "");
               if (!phone.startsWith("91")) phone = `91${phone}`;
 
-              await sendPrasadamDispatchWhatsapp(phone, recipientName);
+              await sendPrasadamDispatchWhatsapp(phone, recipientName, trackingNumbers[id] || donation.prasadamTrackingNumber || "");
               donation.prasadamWhatsappSentAt = new Date();
             } catch (waErr) {
               console.error(`Prasadam WhatsApp failed for ${id}:`, waErr.message);

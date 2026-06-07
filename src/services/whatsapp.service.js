@@ -155,7 +155,7 @@ const sendReceiptWhatsapp = async (
 };
 
 
-const sendPrasadamDispatchWhatsapp = async (phone, donorName) => {
+const sendPrasadamDispatchWhatsapp = async (phone, donorName, trackingNumber = "") => {
   const response = await axios.post(
     "https://wapi.flaxxa.com/api/v1/sendtemplatemessage",
     {
@@ -166,7 +166,10 @@ const sendPrasadamDispatchWhatsapp = async (phone, donorName) => {
       components: [
         {
           type: "body",
-          parameters: [{ type: "text", text: donorName }],
+          parameters: [
+            { type: "text", text: donorName },
+            { type: "text", text: trackingNumber || "Will be shared shortly" },
+          ],
         },
       ],
     },

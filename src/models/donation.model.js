@@ -35,6 +35,7 @@ const donationSchema = new mongoose.Schema(
     prasadamDeliveryStatus: { type: String, enum: ["pending", "delivered"], default: "pending" },
     prasadamDeliveredAt: { type: Date },
     prasadamWhatsappSentAt: { type: Date },
+    prasadamTrackingNumber: { type: String },
 
     receiptNumber: { type: String },
     donorNumber: { type: String, default: "" },
