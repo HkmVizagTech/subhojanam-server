@@ -6,6 +6,7 @@ const { adminSubscriptionController } = require("../controllers/admin.subscripti
 const campaignController = require("../controllers/campaign.controller.js");
 const { missedChargesController } = require("../controllers/missed.charges.controller");
 const { offlineDonationController } = require("../controllers/offline.donation.controller");
+const { prasadamController } = require("../controllers/prasadam.controller");
 const adminRouter = express.Router();
 
 
@@ -29,6 +30,10 @@ adminRouter.get("/transactions", adminController.getAllTransactions);
 adminRouter.get("/transactions/receipt-debug", adminController.receiptDebug);
 adminRouter.post("/transactions/register-subscription-charge", adminController.registerSubscriptionCharge);
 adminRouter.post("/transactions/offline", offlineDonationController.createOfflineDonation);
+
+adminRouter.get("/prasadam", prasadamController.getPrasadamList);
+adminRouter.post("/prasadam/mark-delivered", prasadamController.markDelivered);
+adminRouter.get("/prasadam/export", prasadamController.exportPrasadamCSV);
 adminRouter.patch("/transactions/:id/mark-receipt-generated", adminController.markReceiptGenerated);
 adminRouter.get("/transactions/stats", adminController.getTransactionStats);
 adminRouter.get("/transactions/export", adminController.exportTransactions);

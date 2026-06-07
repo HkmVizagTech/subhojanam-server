@@ -154,4 +154,25 @@ const sendReceiptWhatsapp = async (
   return response.data;
 };
 
-module.exports = { sendReceiptWhatsapp, sendPendingWhatsapp };
+
+const sendPrasadamDispatchWhatsapp = async (phone, donorName) => {
+  const response = await axios.post(
+    "https://wapi.flaxxa.com/api/v1/sendtemplatemessage",
+    {
+      apikey: process.env.FLAXXA_API_KEY,
+      to: phone,
+      template_name: "prasadam_dispatch_notification",
+      template_language: "en",
+      components: [
+        {
+          type: "body",
+          parameters: [{ type: "text", text: donorName }],
+        },
+      ],
+    },
+    { headers: { "Content-Type": "application/json" } }
+  );
+  return response.data;
+};
+
+module.exports = { sendReceiptWhatsapp, sendPendingWhatsapp, sendPrasadamDispatchWhatsapp };
