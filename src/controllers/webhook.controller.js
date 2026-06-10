@@ -160,7 +160,28 @@ const webHookControler = {
               razorpayPaymentId: payment.id,
             });
             if (alreadyProcessed) {
-              console.log("subscription.charged already processed:", payment.id);
+              // If donation exists but receipt not generated — retry receipt + WhatsApp
+              if (!alreadyProcessed.receiptGeneratedAt && alreadyProcessed.amount >= 1) {
+                console.log("subscription.charged: donation exists but no receipt — retrying for:", payment.id);
+                let apiResponse = alreadyProcessed.externalApiResponse || null;
+                try {
+                  if (!apiResponse) {
+                    apiResponse = await externalDonationService.sendToExternalApi(alreadyProcessed, payment);
+                    await donationModle.findByIdAndUpdate(alreadyProcessed._id, {
+                      $set: { externalApiResponse: apiResponse, externalApiSentAt: new Date(), donorNumber: apiResponse?.DonorNumber || "" },
+                    });
+                  }
+                  const filePath = await receiptService.generateReceipt(alreadyProcessed, apiResponse);
+                  let phone = alreadyProcessed.mobile.replace(/\D/g, "");
+                  if (!phone.startsWith("91")) phone = `91${phone}`;
+                  await whatsappService.sendReceiptWhatsapp(phone, filePath, alreadyProcessed.name, alreadyProcessed.amount, "subscription");
+                  console.log("✅ Receipt and WhatsApp sent on retry for:", payment.id);
+                } catch (retryErr) {
+                  console.error("⚠️ Retry receipt failed:", retryErr.message);
+                }
+              } else {
+                console.log("subscription.charged already processed:", payment.id);
+              }
               break;
             }
 
