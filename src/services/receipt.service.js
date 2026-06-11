@@ -105,7 +105,11 @@ const generateReceipt = async (donation, apiResponse = null) => {
     }
 
     const receiptDate = new Date().toLocaleDateString("en-GB");
-    const address = `${donation.address || ""}, ${donation.city || ""}, ${donation.state || ""} - ${donation.pincode || ""}`;
+    const addr = donation.address || donation.prasadamAddress || "";
+    const addrCity = donation.city || donation.prasadamCity || "";
+    const addrState = donation.state || donation.prasadamState || "";
+    const addrPincode = donation.pincode || donation.prasadamPincode || "";
+    const address = `${addr}, ${addrCity}, ${addrState} - ${addrPincode}`;
 
     const logoBase64 = fs.readFileSync(
       path.join(__dirname, "../public/hkmi-logo.jpg"),
