@@ -186,12 +186,25 @@ const webHookControler = {
             }
 
             // 2. Find original subscription donation to get donor details
+            // Guard — must have a valid subscription_id
+            if (!payment.subscription_id) {
+              console.error("subscription.charged: missing subscription_id on payment", payment.id);
+              break;
+            }
+
             const originalDonation = await donationModle.findOne({
               subscriptionId: payment.subscription_id,
+              isRecurring: true,
             }).sort({ createdAt: 1 });
 
             if (!originalDonation) {
               console.error("No original donation found for subscription:", payment.subscription_id);
+              break;
+            }
+
+            // Safety — original must actually belong to this subscription
+            if (originalDonation.subscriptionId !== payment.subscription_id) {
+              console.error("Subscription ID mismatch — aborting to prevent wrong donor copy:", payment.subscription_id);
               break;
             }
 
