@@ -6,29 +6,25 @@ const DEFAULT_GRAPH_API_VERSION = "v23.0";
 
 function hash(value) {
   if (!value) return undefined;
-  return crypto
-    .createHash("sha256")
-    .update(String(value).trim().toLowerCase())
-    .digest("hex");
+  return crypto.createHash("sha256").update(String(value).trim().toLowerCase()).digest("hex");
 }
 
 function normalizePhone(mobile) {
   if (!mobile) return undefined;
-
   const digits = String(mobile).replace(/\D/g, "");
   if (!digits) return undefined;
-
   return digits.startsWith("91") ? digits : `91${digits}`;
 }
 
 function buildUserData(donation) {
   const userData = {
-    external_id: hash(donation._id),
+    external_id: hash(String(donation._id)),
+    country: [hash("in")], // India — always applicable
   };
 
+  // Email + phone
   const emailHash = hash(donation.email);
   const phoneHash = hash(normalizePhone(donation.mobile));
-
   if (emailHash) userData.em = [emailHash];
   if (phoneHash) userData.ph = [phoneHash];
 
@@ -41,17 +37,22 @@ function buildUserData(donation) {
     if (lastName) userData.ln = [hash(lastName.toLowerCase())];
   }
 
-  // Address fields
+  // Address
   if (donation.city) userData.ct = [hash(donation.city.toLowerCase().replace(/\s+/g, ""))];
   if (donation.state) userData.st = [hash(donation.state.toLowerCase().replace(/\s+/g, ""))];
   if (donation.pincode) userData.zp = [hash(donation.pincode.trim())];
 
-  // Date of birth — Meta expects YYYYMMDD format, hashed
+  // Date of birth — YYYYMMDD format
   if (donation.dob) {
-    const dob = donation.dob.replace(/-/g, ""); // "2000-01-25" → "20000125"
+    const dob = donation.dob.replace(/-/g, "");
     if (dob.length === 8) userData.db = [hash(dob)];
   }
-  if (donation.fbc) userData.fbc = donation.fbc;
+
+  // Browser IDs — fbp and fbc
+  if (donation.fbp) userData.fbp = donation.fbp;  // NOT hashed per Meta spec
+  if (donation.fbc) userData.fbc = donation.fbc;  // NOT hashed per Meta spec
+
+  // IP + user agent
   if (donation.clientIp) {
     const ip = donation.clientIp.startsWith("::ffff:")
       ? donation.clientIp.replace("::ffff:", "")
@@ -79,36 +80,44 @@ async function sendPurchaseEvent(donation, payment) {
   const eventSourceUrl = donation.pageUrl || process.env.META_EVENT_SOURCE_URL || DEFAULT_EVENT_SOURCE_URL;
   const paymentId = payment?.id || donation.razorpayPaymentId || String(donation._id);
 
+  // Ensure value is always a clean number
+  const value = parseFloat(Number(donation.amount).toFixed(2)) || 0;
+
+  const userData = buildUserData(donation);
+  const eventTime = Math.floor(Date.now() / 1000);
+
   const payload = {
     data: [
       {
-        event_name: "Donate",
-        event_time: Math.floor(Date.now() / 1000),
-        event_id: `donate_${paymentId}`,
-        action_source: "website",
-        event_source_url: eventSourceUrl,
-        user_data: buildUserData(donation),
-        custom_data: {
-          currency: "INR",
-          value: Number(donation.amount) || 0,
-          content_name: "Annadana Seva",
-          content_category: "religious_charity",
-          order_id: donation.razorpayOrderId,
-        },
-      },
-      {
         event_name: "Purchase",
-        event_time: Math.floor(Date.now() / 1000),
+        event_time: eventTime,
         event_id: paymentId,
         action_source: "website",
         event_source_url: eventSourceUrl,
-        user_data: buildUserData(donation),
+        user_data: userData,
         custom_data: {
           currency: "INR",
-          value: Number(donation.amount) || 0,
+          value,
           content_name: "Annadana Seva",
-          content_type: "donation",
-          order_id: donation.razorpayOrderId,
+          content_type: "product",  // Meta spec requires "product" for Purchase
+          content_ids: [paymentId],
+          content_category: "religious_charity",
+          num_items: Math.floor(value / 25) || 1,
+          order_id: donation.razorpayOrderId || paymentId,
+        },
+      },
+      {
+        event_name: "Donate",
+        event_time: eventTime,
+        event_id: `donate_${paymentId}`,
+        action_source: "website",
+        event_source_url: eventSourceUrl,
+        user_data: userData,
+        custom_data: {
+          currency: "INR",
+          value,
+          content_name: "Annadana Seva",
+          content_category: "religious_charity",
         },
       },
     ],
@@ -121,7 +130,7 @@ async function sendPurchaseEvent(donation, payment) {
   const url = `https://graph.facebook.com/${graphApiVersion}/${pixelId}/events`;
   const response = await axios.post(url, payload, {
     params: { access_token: accessToken },
-    timeout: 5000,
+    timeout: 8000,
   });
 
   return response.data;
