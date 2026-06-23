@@ -286,7 +286,7 @@ const subscriptionRepairController = {
   // 5. FIX SINGLE PAYMENT — correct a DB record's donor details using Razorpay as truth
   fixPaymentDonor: async (req, res) => {
     try {
-      const { paymentId, name, mobile, email } = req.body;
+      const { paymentId, name, mobile, email, regenerateReceipt = false } = req.body;
       if (!paymentId) {
         return res.status(400).json({ success: false, message: "paymentId required" });
       }
@@ -299,22 +299,70 @@ const subscriptionRepairController = {
       // Fetch Razorpay truth
       const payment = await razorpay.payments.fetch(paymentId);
 
-      const before = { name: dbRecord.name, mobile: dbRecord.mobile, email: dbRecord.email };
+      const before = {
+        name: dbRecord.name,
+        mobile: dbRecord.mobile,
+        email: dbRecord.email,
+        oldReceiptNumber: dbRecord.receiptNumber,
+        oldDonorNumber: dbRecord.donorNumber,
+      };
 
-      // Use provided values, or fall back to Razorpay contact/email
+      // Correct donor details
       dbRecord.name = name || dbRecord.name;
       dbRecord.mobile = mobile || (payment.contact || "").replace(/^\+?91/, "") || dbRecord.mobile;
       dbRecord.email = email || payment.email || dbRecord.email;
-      await dbRecord.save();
+
+      let regenResult = null;
+
+      if (regenerateReceipt) {
+        // Clear old DCC + receipt data (DCC cancels old receipt on their end)
+        dbRecord.externalApiResponse = null;
+        dbRecord.externalApiSentAt = null;
+        dbRecord.donorNumber = "";
+        dbRecord.receiptNumber = "";
+        dbRecord.receiptGeneratedAt = null;
+        await dbRecord.save();
+
+        // Re-send to DCC with correct donor → new receipt
+        try {
+          const apiResponse = await externalDonationService.sendToExternalApi(dbRecord, payment);
+          dbRecord.externalApiResponse = apiResponse;
+          dbRecord.externalApiSentAt = new Date();
+          dbRecord.donorNumber = apiResponse?.DonorNumber || "";
+          await dbRecord.save();
+
+          // Regenerate PDF
+          const filePath = await receiptService.generateReceipt(dbRecord, apiResponse);
+
+          // Send WhatsApp to correct donor
+          let phone = dbRecord.mobile.replace(/\D/g, "");
+          if (!phone.startsWith("91")) phone = `91${phone}`;
+          await whatsappService.sendReceiptWhatsapp(
+            phone, filePath, dbRecord.name, dbRecord.amount,
+            dbRecord.isRecurring ? "subscription" : "normal"
+          );
+
+          regenResult = {
+            newReceiptNumber: apiResponse?.ReceiptNumber || "",
+            newDonorNumber: apiResponse?.DonorNumber || "",
+            whatsappSentTo: phone,
+          };
+        } catch (regenErr) {
+          regenResult = { error: regenErr.message, note: "Name corrected but receipt regeneration failed — use Missing Receipts" };
+        }
+      } else {
+        await dbRecord.save();
+      }
 
       res.json({
         success: true,
-        message: "Donor details corrected",
+        message: regenerateReceipt ? "Donor corrected + receipt regenerated + WhatsApp sent" : "Donor details corrected (receipt NOT regenerated)",
         paymentId,
         before,
         after: { name: dbRecord.name, mobile: dbRecord.mobile, email: dbRecord.email },
         razorpayContact: payment.contact,
         razorpayEmail: payment.email,
+        regeneration: regenResult,
       });
     } catch (error) {
       console.error("Fix payment donor error:", error);
