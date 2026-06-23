@@ -220,6 +220,12 @@ const subscriptionRepairController = {
       // Our DB record for this payment
       const dbRecord = await donationModle.findOne({ razorpayPaymentId: paymentId });
 
+      // Search DB by the Razorpay contact number to find the REAL donor's other records
+      const contactDigits = (payment.contact || "").replace(/\D/g, "").replace(/^91/, "");
+      const recordsByContact = contactDigits
+        ? await donationModle.find({ mobile: { $regex: contactDigits + "$" } }).sort({ createdAt: -1 }).limit(10)
+        : [];
+
       res.json({
         success: true,
         razorpay: {
@@ -230,6 +236,7 @@ const subscriptionRepairController = {
           email: payment.email,
           contact: payment.contact,
           subscription_id: payment.subscription_id,
+          order_id: payment.order_id,
           created_at: new Date(payment.created_at * 1000),
           notes: payment.notes,
         },
@@ -247,7 +254,19 @@ const subscriptionRepairController = {
           amount: dbRecord.amount,
           isRecurring: dbRecord.isRecurring,
           subscriptionId: dbRecord.subscriptionId,
+          razorpayOrderId: dbRecord.razorpayOrderId,
         } : null,
+        recordsMatchingRazorpayContact: recordsByContact.map(d => ({
+          id: d._id,
+          name: d.name,
+          mobile: d.mobile,
+          email: d.email,
+          amount: d.amount,
+          date: d.createdAt,
+          isRecurring: d.isRecurring,
+          subscriptionId: d.subscriptionId,
+          paymentId: d.razorpayPaymentId,
+        })),
         allDonationsUnderSubscription: subscriptionDonations.map(d => ({
           id: d._id,
           name: d.name,
@@ -260,6 +279,45 @@ const subscriptionRepairController = {
       });
     } catch (error) {
       console.error("Verify payment error:", error);
+      res.status(500).json({ success: false, message: error.message });
+    }
+  },
+
+  // 5. FIX SINGLE PAYMENT — correct a DB record's donor details using Razorpay as truth
+  fixPaymentDonor: async (req, res) => {
+    try {
+      const { paymentId, name, mobile, email } = req.body;
+      if (!paymentId) {
+        return res.status(400).json({ success: false, message: "paymentId required" });
+      }
+
+      const dbRecord = await donationModle.findOne({ razorpayPaymentId: paymentId });
+      if (!dbRecord) {
+        return res.status(404).json({ success: false, message: "No DB record for this payment" });
+      }
+
+      // Fetch Razorpay truth
+      const payment = await razorpay.payments.fetch(paymentId);
+
+      const before = { name: dbRecord.name, mobile: dbRecord.mobile, email: dbRecord.email };
+
+      // Use provided values, or fall back to Razorpay contact/email
+      dbRecord.name = name || dbRecord.name;
+      dbRecord.mobile = mobile || (payment.contact || "").replace(/^\+?91/, "") || dbRecord.mobile;
+      dbRecord.email = email || payment.email || dbRecord.email;
+      await dbRecord.save();
+
+      res.json({
+        success: true,
+        message: "Donor details corrected",
+        paymentId,
+        before,
+        after: { name: dbRecord.name, mobile: dbRecord.mobile, email: dbRecord.email },
+        razorpayContact: payment.contact,
+        razorpayEmail: payment.email,
+      });
+    } catch (error) {
+      console.error("Fix payment donor error:", error);
       res.status(500).json({ success: false, message: error.message });
     }
   },
