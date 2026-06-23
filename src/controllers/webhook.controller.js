@@ -39,6 +39,12 @@ const webHookControler = {
           let donation = null; // ← declare OUTSIDE try so catch can access it
 
           try {
+            // Guard — payment must have an order_id, else skip (subscription charges handled separately)
+            if (!payment.order_id) {
+              console.log("payment.captured: no order_id (likely subscription charge), skipping:", payment.id);
+              return res.status(200).send("No order_id — handled by subscription.charged");
+            }
+
             donation = await donationModle.findOne({
               razorpayOrderId: payment.order_id,
             });
