@@ -39,6 +39,7 @@ adminRouter.get("/prasadam/export", prasadamController.exportPrasadamCSV);
 adminRouter.get("/subscription-repair/diagnose", subscriptionRepairController.diagnoseMismatch);
 adminRouter.post("/subscription-repair/fix", subscriptionRepairController.fixSubscription);
 adminRouter.post("/subscription-repair/sync-charge", subscriptionRepairController.syncMissingCharge);
+adminRouter.get("/subscription-repair/verify", subscriptionRepairController.verifyPayment);
 adminRouter.patch("/transactions/:id/mark-receipt-generated", adminController.markReceiptGenerated);
 adminRouter.get("/transactions/stats", adminController.getTransactionStats);
 adminRouter.get("/transactions/export", adminController.exportTransactions);

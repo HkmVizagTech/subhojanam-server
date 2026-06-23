@@ -195,6 +195,75 @@ const subscriptionRepairController = {
     }
   },
 
+  // 4. VERIFY — fetch a payment from Razorpay and compare with DB record
+  verifyPayment: async (req, res) => {
+    try {
+      const { paymentId } = req.query;
+      if (!paymentId) {
+        return res.status(400).json({ success: false, message: "paymentId required" });
+      }
+
+      // Fetch from Razorpay
+      const payment = await razorpay.payments.fetch(paymentId);
+
+      let subscription = null;
+      let subscriptionDonations = [];
+      if (payment.subscription_id) {
+        try {
+          subscription = await razorpay.subscriptions.fetch(payment.subscription_id);
+        } catch (e) {
+          subscription = { error: e.message };
+        }
+        subscriptionDonations = await donationModle.find({ subscriptionId: payment.subscription_id }).sort({ createdAt: 1 });
+      }
+
+      // Our DB record for this payment
+      const dbRecord = await donationModle.findOne({ razorpayPaymentId: paymentId });
+
+      res.json({
+        success: true,
+        razorpay: {
+          paymentId: payment.id,
+          amount: payment.amount / 100,
+          status: payment.status,
+          method: payment.method,
+          email: payment.email,
+          contact: payment.contact,
+          subscription_id: payment.subscription_id,
+          created_at: new Date(payment.created_at * 1000),
+          notes: payment.notes,
+        },
+        razorpaySubscription: subscription ? {
+          id: subscription.id,
+          status: subscription.status,
+          notes: subscription.notes,
+          customer_id: subscription.customer_id,
+        } : null,
+        ourDbRecord: dbRecord ? {
+          id: dbRecord._id,
+          name: dbRecord.name,
+          mobile: dbRecord.mobile,
+          email: dbRecord.email,
+          amount: dbRecord.amount,
+          isRecurring: dbRecord.isRecurring,
+          subscriptionId: dbRecord.subscriptionId,
+        } : null,
+        allDonationsUnderSubscription: subscriptionDonations.map(d => ({
+          id: d._id,
+          name: d.name,
+          mobile: d.mobile,
+          email: d.email,
+          amount: d.amount,
+          date: d.createdAt,
+          paymentId: d.razorpayPaymentId,
+        })),
+      });
+    } catch (error) {
+      console.error("Verify payment error:", error);
+      res.status(500).json({ success: false, message: error.message });
+    }
+  },
+
 };
 
 module.exports = { subscriptionRepairController };
