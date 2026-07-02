@@ -496,7 +496,7 @@ const subscriptionRepairController = {
           result.oldReceiptNumber = donation.receiptNumber;
 
           // Step 1: Check with DCC first — call addDonation with same gatewayPaymentId
-          // DCC is idempotent on gatewayPaymentId — returns existing receipt if already registered
+          // DCC returns 400 "Transaction details exist" if already registered — treat as exists
           const payment = { id: paymentId };
           let apiResponse = null;
           let alreadyInDCC = false;
@@ -504,7 +504,7 @@ const subscriptionRepairController = {
           try {
             apiResponse = await externalDonationService.sendToExternalApi(donation, payment);
 
-            // If DCC returns a receipt number that matches what we have — already exists
+            // DCC returned a new or existing receipt
             if (apiResponse?.ReceiptNumber && apiResponse.ReceiptNumber === donation.receiptNumber) {
               alreadyInDCC = true;
               result.status = "already_in_dcc";
@@ -516,9 +516,22 @@ const subscriptionRepairController = {
               continue;
             }
 
-            // DCC returned a NEW receipt number — update our DB
-            alreadyInDCC = false;
           } catch (dccErr) {
+            // DCC returns 400 when record already exists — this is NOT a real failure
+            const errMsg = dccErr?.response?.data?.Message || dccErr?.response?.data?.message || "";
+            if (
+              dccErr?.response?.status === 400 &&
+              errMsg.toLowerCase().includes("transaction details exist")
+            ) {
+              result.status = "already_in_dcc";
+              result.receiptNumber = donation.receiptNumber;
+              result.success = true;
+              result.note = `DCC confirmed: record exists (our receipt: ${donation.receiptNumber})`;
+              results.push(result);
+              await new Promise(resolve => setTimeout(resolve, 300));
+              continue;
+            }
+            // Real DCC error
             result.error = `DCC API error: ${dccErr.message}`;
             results.push(result);
             await new Promise(resolve => setTimeout(resolve, 300));
