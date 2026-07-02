@@ -471,7 +471,7 @@ const subscriptionRepairController = {
     }
   },
 
-  // 8. BULK RE-SEND TO DCC — re-call DCC API for records that exist in our DB but not in DCC
+  // 8. BULK RE-SEND TO DCC — check with DCC first, only call API if not found
   bulkResendToDCC: async (req, res) => {
     try {
       const { paymentIds } = req.body;
@@ -495,30 +495,53 @@ const subscriptionRepairController = {
           result.amount = donation.amount;
           result.oldReceiptNumber = donation.receiptNumber;
 
-          // Clear old DCC data so it re-registers fresh
-          donation.externalApiResponse = null;
-          donation.externalApiSentAt = null;
-          donation.donorNumber = "";
+          // Step 1: Check with DCC first — call addDonation with same gatewayPaymentId
+          // DCC is idempotent on gatewayPaymentId — returns existing receipt if already registered
+          const payment = { id: paymentId };
+          let apiResponse = null;
+          let alreadyInDCC = false;
+
+          try {
+            apiResponse = await externalDonationService.sendToExternalApi(donation, payment);
+
+            // If DCC returns a receipt number that matches what we have — already exists
+            if (apiResponse?.ReceiptNumber && apiResponse.ReceiptNumber === donation.receiptNumber) {
+              alreadyInDCC = true;
+              result.status = "already_in_dcc";
+              result.receiptNumber = apiResponse.ReceiptNumber;
+              result.success = true;
+              result.note = "Already exists in DCC — no action needed";
+              results.push(result);
+              await new Promise(resolve => setTimeout(resolve, 300));
+              continue;
+            }
+
+            // DCC returned a NEW receipt number — update our DB
+            alreadyInDCC = false;
+          } catch (dccErr) {
+            result.error = `DCC API error: ${dccErr.message}`;
+            results.push(result);
+            await new Promise(resolve => setTimeout(resolve, 300));
+            continue;
+          }
+
+          // Step 2: DCC gave a new receipt — update our DB
+          donation.externalApiResponse = apiResponse;
+          donation.externalApiSentAt = new Date();
+          donation.donorNumber = apiResponse?.DonorNumber || "";
           donation.receiptNumber = "";
           donation.receiptGeneratedAt = null;
           await donation.save();
 
-          // Re-call DCC API
-          const payment = { id: paymentId };
-          const apiResponse = await externalDonationService.sendToExternalApi(donation, payment);
-          donation.externalApiResponse = apiResponse;
-          donation.externalApiSentAt = new Date();
-          donation.donorNumber = apiResponse?.DonorNumber || "";
-          await donation.save();
-
           result.newReceiptNumber = apiResponse?.ReceiptNumber || "";
           result.newDonorNumber = apiResponse?.DonorNumber || "";
+          result.status = "new_receipt_issued";
 
-          // Regenerate PDF
+          // Step 3: Regenerate PDF
           try {
             const filePath = await receiptService.generateReceipt(donation, apiResponse);
 
-            // Send WhatsApp
+            // Step 4: Send WhatsApp to donor
             try {
               let phone = donation.mobile.replace(/\D/g, "");
               if (!phone.startsWith("91")) phone = `91${phone}`;
@@ -533,8 +556,8 @@ const subscriptionRepairController = {
 
             result.success = true;
           } catch (receiptErr) {
-            result.error = `DCC done but receipt failed: ${receiptErr.message}`;
-            result.success = true; // DCC succeeded
+            result.error = `DCC done (${result.newReceiptNumber}) but PDF failed: ${receiptErr.message}`;
+            result.success = true;
             result.note = "Use Missing Receipts to regenerate PDF";
           }
 
@@ -543,15 +566,16 @@ const subscriptionRepairController = {
         }
 
         results.push(result);
-
-        // Small delay between DCC calls to avoid rate limiting
         await new Promise(resolve => setTimeout(resolve, 500));
       }
 
-      const succeeded = results.filter(r => r.success).length;
+      const alreadyInDCC = results.filter(r => r.status === "already_in_dcc").length;
+      const newReceipts = results.filter(r => r.status === "new_receipt_issued" && r.success).length;
+      const failed = results.filter(r => !r.success).length;
+
       res.json({
         success: true,
-        message: `Re-sent to DCC: ${succeeded}/${paymentIds.length} succeeded`,
+        message: `DCC check done: ${alreadyInDCC} already existed, ${newReceipts} new receipts issued, ${failed} failed`,
         results,
       });
     } catch (error) {
