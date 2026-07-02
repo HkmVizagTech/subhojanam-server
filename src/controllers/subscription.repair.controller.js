@@ -370,6 +370,107 @@ const subscriptionRepairController = {
     }
   },
 
+  // 6. BULK DIAGNOSE — find all donations wrongly attributed to a donor by cross-checking subscriptionIds
+  bulkDiagnoseMisattributed: async (req, res) => {
+    try {
+      const { mobile } = req.query;
+      if (!mobile) return res.status(400).json({ success: false, message: "mobile required" });
+
+      // All donations under this mobile
+      const allDonations = await donationModle.find({ mobile }).sort({ createdAt: 1 });
+
+      const correct = [];
+      const wrong = [];
+      const needsVerification = [];
+
+      for (const d of allDonations) {
+        // If it has a subscriptionId, check if the original signup for that subscription
+        // was truly this donor
+        if (d.subscriptionId) {
+          const originalForSub = await donationModle.findOne({
+            subscriptionId: d.subscriptionId,
+          }).sort({ createdAt: 1 });
+
+          if (originalForSub?.mobile !== mobile) {
+            // This subscription belongs to someone else — wrong attribution
+            wrong.push({
+              id: d._id,
+              paymentId: d.razorpayPaymentId,
+              subscriptionId: d.subscriptionId,
+              amount: d.amount,
+              date: d.createdAt,
+              realDonorName: originalForSub?.name,
+              realDonorMobile: originalForSub?.mobile,
+              realDonorEmail: originalForSub?.email,
+            });
+          } else {
+            correct.push({ id: d._id, paymentId: d.razorpayPaymentId, amount: d.amount, date: d.createdAt });
+          }
+        } else if (d.razorpayPaymentId) {
+          // One-time payment — needs Razorpay verification to confirm
+          needsVerification.push({
+            id: d._id,
+            paymentId: d.razorpayPaymentId,
+            amount: d.amount,
+            date: d.createdAt,
+          });
+        } else {
+          correct.push({ id: d._id, paymentId: null, amount: d.amount, date: d.createdAt });
+        }
+      }
+
+      res.json({
+        success: true,
+        mobile,
+        summary: {
+          total: allDonations.length,
+          confirmed_correct: correct.length,
+          confirmed_wrong: wrong.length,
+          needs_razorpay_verification: needsVerification.length,
+        },
+        wrong,
+        correct,
+        needsVerification,
+      });
+    } catch (error) {
+      console.error("Bulk diagnose error:", error);
+      res.status(500).json({ success: false, message: error.message });
+    }
+  },
+
+  // 7. BULK FIX — correct all wrong donations back to their real donors
+  bulkFixMisattributed: async (req, res) => {
+    try {
+      const { donationsToFix } = req.body;
+      // donationsToFix: [{ id, name, mobile, email }]
+      if (!donationsToFix || !Array.isArray(donationsToFix)) {
+        return res.status(400).json({ success: false, message: "donationsToFix array required" });
+      }
+
+      const results = [];
+      for (const fix of donationsToFix) {
+        try {
+          const d = await donationModle.findById(fix.id);
+          if (!d) { results.push({ id: fix.id, success: false, message: "Not found" }); continue; }
+          const before = { name: d.name, mobile: d.mobile };
+          d.name = fix.name;
+          d.mobile = fix.mobile;
+          d.email = fix.email || d.email;
+          await d.save();
+          results.push({ id: fix.id, success: true, before, after: { name: d.name, mobile: d.mobile } });
+        } catch (e) {
+          results.push({ id: fix.id, success: false, message: e.message });
+        }
+      }
+
+      const succeeded = results.filter(r => r.success).length;
+      res.json({ success: true, message: `Fixed ${succeeded}/${donationsToFix.length} records`, results });
+    } catch (error) {
+      console.error("Bulk fix error:", error);
+      res.status(500).json({ success: false, message: error.message });
+    }
+  },
+
 };
 
 module.exports = { subscriptionRepairController };
