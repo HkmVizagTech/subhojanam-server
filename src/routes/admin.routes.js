@@ -43,6 +43,7 @@ adminRouter.get("/subscription-repair/verify", subscriptionRepairController.veri
 adminRouter.post("/subscription-repair/fix-payment-donor", subscriptionRepairController.fixPaymentDonor);
 adminRouter.get("/subscription-repair/bulk-diagnose", subscriptionRepairController.bulkDiagnoseMisattributed);
 adminRouter.post("/subscription-repair/bulk-fix", subscriptionRepairController.bulkFixMisattributed);
+adminRouter.post("/subscription-repair/bulk-resend-dcc", subscriptionRepairController.bulkResendToDCC);
 adminRouter.patch("/transactions/:id/mark-receipt-generated", adminController.markReceiptGenerated);
 adminRouter.get("/transactions/stats", adminController.getTransactionStats);
 adminRouter.get("/transactions/export", adminController.exportTransactions);

@@ -471,6 +471,95 @@ const subscriptionRepairController = {
     }
   },
 
+  // 8. BULK RE-SEND TO DCC — re-call DCC API for records that exist in our DB but not in DCC
+  bulkResendToDCC: async (req, res) => {
+    try {
+      const { paymentIds } = req.body;
+      if (!paymentIds || !Array.isArray(paymentIds) || paymentIds.length === 0) {
+        return res.status(400).json({ success: false, message: "paymentIds array required" });
+      }
+
+      const results = [];
+
+      for (const paymentId of paymentIds) {
+        const result = { paymentId, success: false };
+        try {
+          const donation = await donationModle.findOne({ razorpayPaymentId: paymentId });
+          if (!donation) {
+            result.error = "Not found in DB";
+            results.push(result);
+            continue;
+          }
+
+          result.donorName = donation.name;
+          result.amount = donation.amount;
+          result.oldReceiptNumber = donation.receiptNumber;
+
+          // Clear old DCC data so it re-registers fresh
+          donation.externalApiResponse = null;
+          donation.externalApiSentAt = null;
+          donation.donorNumber = "";
+          donation.receiptNumber = "";
+          donation.receiptGeneratedAt = null;
+          await donation.save();
+
+          // Re-call DCC API
+          const payment = { id: paymentId };
+          const apiResponse = await externalDonationService.sendToExternalApi(donation, payment);
+          donation.externalApiResponse = apiResponse;
+          donation.externalApiSentAt = new Date();
+          donation.donorNumber = apiResponse?.DonorNumber || "";
+          await donation.save();
+
+          result.newReceiptNumber = apiResponse?.ReceiptNumber || "";
+          result.newDonorNumber = apiResponse?.DonorNumber || "";
+
+          // Regenerate PDF
+          try {
+            const filePath = await receiptService.generateReceipt(donation, apiResponse);
+
+            // Send WhatsApp
+            try {
+              let phone = donation.mobile.replace(/\D/g, "");
+              if (!phone.startsWith("91")) phone = `91${phone}`;
+              await whatsappService.sendReceiptWhatsapp(
+                phone, filePath, donation.name, donation.amount,
+                donation.isRecurring ? "subscription" : "normal"
+              );
+              result.whatsappSent = true;
+            } catch (waErr) {
+              result.whatsappError = waErr.message;
+            }
+
+            result.success = true;
+          } catch (receiptErr) {
+            result.error = `DCC done but receipt failed: ${receiptErr.message}`;
+            result.success = true; // DCC succeeded
+            result.note = "Use Missing Receipts to regenerate PDF";
+          }
+
+        } catch (err) {
+          result.error = err.message;
+        }
+
+        results.push(result);
+
+        // Small delay between DCC calls to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+
+      const succeeded = results.filter(r => r.success).length;
+      res.json({
+        success: true,
+        message: `Re-sent to DCC: ${succeeded}/${paymentIds.length} succeeded`,
+        results,
+      });
+    } catch (error) {
+      console.error("Bulk re-send DCC error:", error);
+      res.status(500).json({ success: false, message: error.message });
+    }
+  },
+
 };
 
 module.exports = { subscriptionRepairController };
