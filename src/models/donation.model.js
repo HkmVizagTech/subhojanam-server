@@ -9,7 +9,6 @@ const donationSchema = new mongoose.Schema(
     sevaDate: { type: String, required: false },
 
     dob: { type: String, required: false },
-    anniversaryDate: { type: String, required: false },
     lastBirthdayWishSentYear: { type: Number },
     lastAnniversaryWishSentYear: { type: Number },
     amount: { type: Number, required: true },

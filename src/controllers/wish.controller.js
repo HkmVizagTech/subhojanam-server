@@ -2,14 +2,11 @@ const { donationModle } = require("../models/donation.model");
 const { sendBirthdayWishWhatsapp, sendAnniversaryWishWhatsapp } = require("../services/whatsapp.service");
 
 /**
- * A donor's birthday can be signalled two ways:
- *   1. Dedicated `dob` field
- *   2. `occasion === "Birthday"` + `sevaDate` (recurring annually on that date)
+ * Birthday signal:    `dob` field (recurring every year on that month+day)
+ * Anniversary signal: `occasion === "Anniversary"` + `sevaDate` (recurring every year on that month+day)
  *
- * Anniversary similarly via `anniversaryDate` OR `occasion === "Anniversary"` + `sevaDate`.
- *
- * This groups all donations by mobile, collects every date-signal across
- * all of that donor's records, and checks if any of them match today's month+day.
+ * Groups all donations by mobile, checks every record for a matching
+ * signal against today's month+day.
  */
 
 function matchesTodayMonthDay(dateStr, todayMonth, todayDate) {
@@ -27,12 +24,11 @@ async function runDailyWishes() {
 
   const results = { birthdaysSent: [], anniversariesSent: [], errors: [] };
 
-  // Pull every donation that carries ANY relevant signal
+  // Pull every donation that carries a relevant signal
   const relevant = await donationModle.find({
     $or: [
       { dob: { $exists: true, $ne: "" } },
-      { anniversaryDate: { $exists: true, $ne: "" } },
-      { occasion: { $in: ["Birthday", "Anniversary"] } },
+      { occasion: "Anniversary", sevaDate: { $exists: true, $ne: "" } },
     ],
   }).sort({ createdAt: -1 });
 
@@ -48,11 +44,8 @@ async function runDailyWishes() {
     const latest = records[0]; // most recent record — for name + wish-tracking flags
     const donorName = latest.name;
 
-    // ---- Check birthday signal across ALL this donor's records ----
-    const isBirthdayToday = records.some(d =>
-      matchesTodayMonthDay(d.dob, todayMonth, todayDate) ||
-      (d.occasion === "Birthday" && matchesTodayMonthDay(d.sevaDate, todayMonth, todayDate))
-    );
+    // ---- Birthday: dob field ----
+    const isBirthdayToday = records.some(d => matchesTodayMonthDay(d.dob, todayMonth, todayDate));
 
     if (isBirthdayToday && latest.lastBirthdayWishSentYear !== currentYear) {
       try {
@@ -66,10 +59,9 @@ async function runDailyWishes() {
       }
     }
 
-    // ---- Check anniversary signal across ALL this donor's records ----
+    // ---- Anniversary: occasion === "Anniversary" + sevaDate ----
     const isAnniversaryToday = records.some(d =>
-      matchesTodayMonthDay(d.anniversaryDate, todayMonth, todayDate) ||
-      (d.occasion === "Anniversary" && matchesTodayMonthDay(d.sevaDate, todayMonth, todayDate))
+      d.occasion === "Anniversary" && matchesTodayMonthDay(d.sevaDate, todayMonth, todayDate)
     );
 
     if (isAnniversaryToday && latest.lastAnniversaryWishSentYear !== currentYear) {
@@ -114,8 +106,7 @@ const wishController = {
       const relevant = await donationModle.find({
         $or: [
           { dob: { $exists: true, $ne: "" } },
-          { anniversaryDate: { $exists: true, $ne: "" } },
-          { occasion: { $in: ["Birthday", "Anniversary"] } },
+          { occasion: "Anniversary", sevaDate: { $exists: true, $ne: "" } },
         ],
       }).sort({ createdAt: -1 });
 
@@ -132,28 +123,16 @@ const wishController = {
         const records = byMobile[mobile];
         const latest = records[0];
 
-        const isBirthdayToday = records.some(d =>
-          matchesTodayMonthDay(d.dob, todayMonth, todayDate) ||
-          (d.occasion === "Birthday" && matchesTodayMonthDay(d.sevaDate, todayMonth, todayDate))
-        );
+        const isBirthdayToday = records.some(d => matchesTodayMonthDay(d.dob, todayMonth, todayDate));
         if (isBirthdayToday && latest.lastBirthdayWishSentYear !== currentYear) {
-          const source = records.find(d => matchesTodayMonthDay(d.dob, todayMonth, todayDate));
-          birthdaysToday.push({
-            name: latest.name, mobile,
-            matchedVia: source ? "dob" : "occasion+sevaDate",
-          });
+          birthdaysToday.push({ name: latest.name, mobile });
         }
 
         const isAnniversaryToday = records.some(d =>
-          matchesTodayMonthDay(d.anniversaryDate, todayMonth, todayDate) ||
-          (d.occasion === "Anniversary" && matchesTodayMonthDay(d.sevaDate, todayMonth, todayDate))
+          d.occasion === "Anniversary" && matchesTodayMonthDay(d.sevaDate, todayMonth, todayDate)
         );
         if (isAnniversaryToday && latest.lastAnniversaryWishSentYear !== currentYear) {
-          const source = records.find(d => matchesTodayMonthDay(d.anniversaryDate, todayMonth, todayDate));
-          anniversariesToday.push({
-            name: latest.name, mobile,
-            matchedVia: source ? "anniversaryDate" : "occasion+sevaDate",
-          });
+          anniversariesToday.push({ name: latest.name, mobile });
         }
       }
 
