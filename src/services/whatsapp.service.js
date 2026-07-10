@@ -178,4 +178,44 @@ const sendPrasadamDispatchWhatsapp = async (phone, donorName, trackingNumber = "
   return response.data;
 };
 
-module.exports = { sendReceiptWhatsapp, sendPendingWhatsapp, sendPrasadamDispatchWhatsapp };
+const sendBirthdayWishWhatsapp = async (phone, donorName) => {
+  const response = await axios.post(
+    "https://wapi.flaxxa.com/api/v1/sendtemplatemessage",
+    {
+      token: process.env.FLAXXA_TOKEN,
+      phone: phone,
+      template_name: "birthday_wish_donation_ask",
+      template_language: "en",
+      components: [
+        {
+          type: "body",
+          parameters: [{ type: "text", text: String(donorName) }],
+        },
+      ],
+    },
+    { headers: { "Content-Type": "application/json" } },
+  );
+  return response.data;
+};
+
+const sendAnniversaryWishWhatsapp = async (phone, donorName) => {
+  const response = await axios.post(
+    "https://wapi.flaxxa.com/api/v1/sendtemplatemessage",
+    {
+      token: process.env.FLAXXA_TOKEN,
+      phone: phone,
+      template_name: "anniversary_wish_donation_ask",
+      template_language: "en",
+      components: [
+        {
+          type: "body",
+          parameters: [{ type: "text", text: String(donorName) }],
+        },
+      ],
+    },
+    { headers: { "Content-Type": "application/json" } },
+  );
+  return response.data;
+};
+
+module.exports = { sendReceiptWhatsapp, sendPendingWhatsapp, sendPrasadamDispatchWhatsapp, sendBirthdayWishWhatsapp, sendAnniversaryWishWhatsapp };

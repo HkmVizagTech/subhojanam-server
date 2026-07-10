@@ -151,6 +151,8 @@ const cors = require("cors");
 const helmet = require("helmet");
 const { donationModle } = require("./src/models/donation.model");
 const { sendPendingWhatsapp } = require("./src/services/whatsapp.service");
+const cron = require("node-cron");
+const { runDailyWishes } = require("./src/controllers/wish.controller");
 
 const app = express();
 
@@ -266,6 +268,21 @@ const server = async () => {
       console.log(
         `🔗 Webhook URL: http://localhost:${PORT}/api/webhook/razorpay`,
       );
+
+      // Daily Birthday/Anniversary wish job — 8:00 AM IST every day
+      cron.schedule(
+        "0 8 * * *",
+        async () => {
+          console.log("⏰ Running daily birthday/anniversary wishes...");
+          try {
+            await runDailyWishes();
+          } catch (err) {
+            console.error("Daily wishes cron error:", err.message);
+          }
+        },
+        { timezone: "Asia/Kolkata" },
+      );
+      console.log("📅 Daily wishes cron scheduled for 8:00 AM IST");
     });
   } catch (error) {
     console.log("❌ Server disconnected", error);

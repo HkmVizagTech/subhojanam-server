@@ -8,6 +8,7 @@ const { missedChargesController } = require("../controllers/missed.charges.contr
 const { offlineDonationController } = require("../controllers/offline.donation.controller");
 const { prasadamController } = require("../controllers/prasadam.controller");
 const { subscriptionRepairController } = require("../controllers/subscription.repair.controller");
+const { wishController } = require("../controllers/wish.controller");
 const adminRouter = express.Router();
 
 
@@ -44,6 +45,9 @@ adminRouter.post("/subscription-repair/fix-payment-donor", subscriptionRepairCon
 adminRouter.get("/subscription-repair/bulk-diagnose", subscriptionRepairController.bulkDiagnoseMisattributed);
 adminRouter.post("/subscription-repair/bulk-fix", subscriptionRepairController.bulkFixMisattributed);
 adminRouter.post("/subscription-repair/bulk-resend-dcc", subscriptionRepairController.bulkResendToDCC);
+
+adminRouter.get("/wishes/preview-today", wishController.previewTodaysWishes);
+adminRouter.post("/wishes/trigger", wishController.triggerDailyWishes);
 adminRouter.patch("/transactions/:id/mark-receipt-generated", adminController.markReceiptGenerated);
 adminRouter.get("/transactions/stats", adminController.getTransactionStats);
 adminRouter.get("/transactions/export", adminController.exportTransactions);
