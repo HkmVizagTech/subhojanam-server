@@ -98,6 +98,48 @@ const festivalCampaignController = {
     }
   },
 
+  // Admin: update name and/or replace images (utmCampaign key stays fixed to protect running ads)
+  updateFestivalCampaign: async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { name, linkUrl } = req.body;
+
+      const campaign = await FestivalCampaign.findById(id);
+      if (!campaign) return res.status(404).json({ success: false, message: "Not found" });
+
+      if (name) campaign.name = name;
+      if (linkUrl) campaign.linkUrl = linkUrl;
+
+      if (req.files?.desktopImage?.[0]) {
+        const result = await uploadBufferToCloudinary(req.files.desktopImage[0].buffer, "festival-banners/desktop");
+        campaign.desktopImageUrl = result.secure_url;
+      }
+      if (req.files?.mobileImage?.[0]) {
+        const result = await uploadBufferToCloudinary(req.files.mobileImage[0].buffer, "festival-banners/mobile");
+        campaign.mobileImageUrl = result.secure_url;
+      }
+
+      await campaign.save();
+
+      // Keep the shared Campaign registry name in sync
+      if (name) {
+        try {
+          await Campaign.findOneAndUpdate(
+            { "utm.campaign": campaign.utmCampaign },
+            { name: `🪔 ${name}` }
+          );
+        } catch (e) {
+          console.error("Could not sync name to Campaign registry:", e.message);
+        }
+      }
+
+      res.json({ success: true, campaign });
+    } catch (error) {
+      console.error("Update festival campaign error:", error);
+      res.status(500).json({ success: false, message: error.message });
+    }
+  },
+
   // Admin: toggle active/inactive
   toggleFestivalCampaign: async (req, res) => {
     try {

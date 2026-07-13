@@ -58,6 +58,11 @@ adminRouter.post(
   festivalCampaignController.createFestivalCampaign
 );
 adminRouter.get("/festival-campaigns", festivalCampaignController.listFestivalCampaigns);
+adminRouter.patch(
+  "/festival-campaigns/:id",
+  upload.fields([{ name: "desktopImage", maxCount: 1 }, { name: "mobileImage", maxCount: 1 }]),
+  festivalCampaignController.updateFestivalCampaign
+);
 adminRouter.patch("/festival-campaigns/:id/toggle", festivalCampaignController.toggleFestivalCampaign);
 adminRouter.delete("/festival-campaigns/:id", festivalCampaignController.deleteFestivalCampaign);
 adminRouter.patch("/transactions/:id/mark-receipt-generated", adminController.markReceiptGenerated);
