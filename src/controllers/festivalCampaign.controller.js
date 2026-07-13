@@ -1,4 +1,5 @@
 const FestivalCampaign = require("../models/festivalCampaign.model");
+const Campaign = require("../models/campaign.model");
 const cloudinary = require("../config/cloudinary");
 
 function normalizeCampaignKey(name) {
@@ -60,6 +61,26 @@ const festivalCampaignController = {
       const baseUrl = process.env.CAMPAIGN_BASE_URL || "https://annadan.harekrishnavizag.org";
       const generatedUrl = `${baseUrl}?utm_source=meta&utm_medium=paid_social&utm_campaign=${encodeURIComponent(key)}`;
 
+      // Also register in the shared Campaign model so it shows up in
+      // the existing Campaign list / UTM tracking view alongside regular campaigns.
+      try {
+        const existingCampaignEntry = await Campaign.findOne({ "utm.campaign": key });
+        if (!existingCampaignEntry) {
+          await Campaign.create({
+            name: `🪔 ${name}`,
+            utm: {
+              source: "meta",
+              medium: "paid_social",
+              campaign: key,
+            },
+            generatedUrl,
+          });
+        }
+      } catch (campaignRegErr) {
+        console.error("Could not register festival campaign in Campaign model:", campaignRegErr.message);
+        // Non-fatal — festival banner still works even if this fails
+      }
+
       res.status(201).json({ success: true, campaign, generatedUrl });
     } catch (error) {
       console.error("Create festival campaign error:", error);
@@ -97,6 +118,14 @@ const festivalCampaignController = {
       const { id } = req.params;
       const deleted = await FestivalCampaign.findByIdAndDelete(id);
       if (!deleted) return res.status(404).json({ success: false, message: "Not found" });
+
+      // Also remove from shared Campaign registry, if present
+      try {
+        await Campaign.findOneAndDelete({ "utm.campaign": deleted.utmCampaign });
+      } catch (e) {
+        console.error("Could not clean up Campaign registry entry:", e.message);
+      }
+
       res.json({ success: true, message: "Deleted" });
     } catch (error) {
       res.status(500).json({ success: false, message: error.message });
