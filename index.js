@@ -202,6 +202,7 @@ app.use(cookieParser());
 app.use("/api/payment", paymentRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/admin", adminRouter);
+app.use("/api/public", require("./src/routes/public.routes").publicRouter);
 app.use("/public", express.static("public"));
 
 // Internal endpoint for pending reminders

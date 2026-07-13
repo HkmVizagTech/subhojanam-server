@@ -9,6 +9,9 @@ const { offlineDonationController } = require("../controllers/offline.donation.c
 const { prasadamController } = require("../controllers/prasadam.controller");
 const { subscriptionRepairController } = require("../controllers/subscription.repair.controller");
 const { wishController } = require("../controllers/wish.controller");
+const { festivalCampaignController } = require("../controllers/festivalCampaign.controller");
+const multer = require("multer");
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 const adminRouter = express.Router();
 
 
@@ -48,6 +51,15 @@ adminRouter.post("/subscription-repair/bulk-resend-dcc", subscriptionRepairContr
 
 adminRouter.get("/wishes/preview-today", wishController.previewTodaysWishes);
 adminRouter.post("/wishes/trigger", wishController.triggerDailyWishes);
+
+adminRouter.post(
+  "/festival-campaigns",
+  upload.fields([{ name: "desktopImage", maxCount: 1 }, { name: "mobileImage", maxCount: 1 }]),
+  festivalCampaignController.createFestivalCampaign
+);
+adminRouter.get("/festival-campaigns", festivalCampaignController.listFestivalCampaigns);
+adminRouter.patch("/festival-campaigns/:id/toggle", festivalCampaignController.toggleFestivalCampaign);
+adminRouter.delete("/festival-campaigns/:id", festivalCampaignController.deleteFestivalCampaign);
 adminRouter.patch("/transactions/:id/mark-receipt-generated", adminController.markReceiptGenerated);
 adminRouter.get("/transactions/stats", adminController.getTransactionStats);
 adminRouter.get("/transactions/export", adminController.exportTransactions);
