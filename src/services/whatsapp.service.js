@@ -218,4 +218,90 @@ const sendAnniversaryWishWhatsapp = async (phone, donorName) => {
   return response.data;
 };
 
-module.exports = { sendReceiptWhatsapp, sendPendingWhatsapp, sendPrasadamDispatchWhatsapp, sendBirthdayWishWhatsapp, sendAnniversaryWishWhatsapp };
+// Birthday wish sent directly to the honoree (sevak) — {{1}} = sevakName
+const sendBirthdayWishToSevak = async (phone, sevakName) => {
+  const response = await axios.post(
+    "https://wapi.flaxxa.com/api/v1/sendtemplatemessage",
+    {
+      token: process.env.FLAXXA_TOKEN,
+      phone,
+      template_name: "birthday_wish_to_sevak",
+      template_language: "en",
+      components: [{ type: "body", parameters: [{ type: "text", text: String(sevakName) }] }],
+    },
+    { headers: { "Content-Type": "application/json" } }
+  );
+  return response.data;
+};
+
+// Birthday wish sent to donor mentioning sevak name — {{1}} = donorName, {{2}} = sevakName
+const sendBirthdayWishToDonor = async (phone, donorName, sevakName) => {
+  const response = await axios.post(
+    "https://wapi.flaxxa.com/api/v1/sendtemplatemessage",
+    {
+      token: process.env.FLAXXA_TOKEN,
+      phone,
+      template_name: "birthday_wish_to_donor",
+      template_language: "en",
+      components: [{
+        type: "body",
+        parameters: [
+          { type: "text", text: String(donorName) },
+          { type: "text", text: String(sevakName) },
+        ],
+      }],
+    },
+    { headers: { "Content-Type": "application/json" } }
+  );
+  return response.data;
+};
+
+// Anniversary wish sent directly to the honoree (sevak) — {{1}} = sevakName
+const sendAnniversaryWishToSevak = async (phone, sevakName) => {
+  const response = await axios.post(
+    "https://wapi.flaxxa.com/api/v1/sendtemplatemessage",
+    {
+      token: process.env.FLAXXA_TOKEN,
+      phone,
+      template_name: "anniversary_wish_to_sevak",
+      template_language: "en",
+      components: [{ type: "body", parameters: [{ type: "text", text: String(sevakName) }] }],
+    },
+    { headers: { "Content-Type": "application/json" } }
+  );
+  return response.data;
+};
+
+// Anniversary wish sent to donor mentioning sevak name — {{1}} = donorName, {{2}} = sevakName
+const sendAnniversaryWishToDonor = async (phone, donorName, sevakName) => {
+  const response = await axios.post(
+    "https://wapi.flaxxa.com/api/v1/sendtemplatemessage",
+    {
+      token: process.env.FLAXXA_TOKEN,
+      phone,
+      template_name: "anniversary_wish_to_donor",
+      template_language: "en",
+      components: [{
+        type: "body",
+        parameters: [
+          { type: "text", text: String(donorName) },
+          { type: "text", text: String(sevakName) },
+        ],
+      }],
+    },
+    { headers: { "Content-Type": "application/json" } }
+  );
+  return response.data;
+};
+
+module.exports = {
+  sendReceiptWhatsapp,
+  sendPendingWhatsapp,
+  sendPrasadamDispatchWhatsapp,
+  sendBirthdayWishWhatsapp,
+  sendAnniversaryWishWhatsapp,
+  sendBirthdayWishToSevak,
+  sendBirthdayWishToDonor,
+  sendAnniversaryWishToSevak,
+  sendAnniversaryWishToDonor,
+};

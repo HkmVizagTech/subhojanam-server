@@ -2,6 +2,7 @@ const crypto = require("crypto");
 const { donationModle } = require("../models/donation.model");
 const receiptService = require("../services/receipt.service");
 const whatsappService = require("../services/whatsapp.service");
+const { maybeSendSameDayWish } = require("./wish.controller");
 const externalDonationService = require("../services/externalDonation.service");
 const metaConversionService = require("../services/metaConversion.service");
 
@@ -130,6 +131,11 @@ const webHookControler = {
               );
               console.log("✅ WhatsApp sent");
             }
+
+            // Trigger same-day birthday/anniversary wish if seva date = today
+            maybeSendSameDayWish(donation).catch(err =>
+              console.error("[Same-day wish] payment.captured error:", err.message)
+            );
 
             return res.status(200).send("Webhook processed");
           } catch (error) {
@@ -298,6 +304,11 @@ const webHookControler = {
                 }
               }
             }
+
+            // Trigger same-day birthday/anniversary wish if seva date = today
+            maybeSendSameDayWish(newDonation).catch(err =>
+              console.error("[Same-day wish] subscription.charged error:", err.message)
+            );
 
             // 6. Update original donation's lastPaymentDate
             await donationModle.findByIdAndUpdate(originalDonation._id, {

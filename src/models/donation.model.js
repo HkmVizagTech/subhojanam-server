@@ -100,6 +100,7 @@ const donationSchema = new mongoose.Schema(
     offlineRefNo: { type: String },
     offlinePaymentMode: { type: String, enum: ["phonepe", "bank_transfer", "cash", "cheque", "upi", "other"] },
     sevakName: { type: String, default: "" },
+    sevakMobile: { type: String, default: "" }, // honoree's mobile — if set, wish goes to them; else goes to donor
     showInTransactions: { type: Boolean, default: true },
   },
   {

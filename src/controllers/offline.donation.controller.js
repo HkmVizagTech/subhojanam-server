@@ -2,6 +2,7 @@ const { donationModle } = require("../models/donation.model");
 const externalDonationService = require("../services/externalDonation.service");
 const receiptService = require("../services/receipt.service");
 const whatsappService = require("../services/whatsapp.service");
+const { maybeSendSameDayWish } = require("./wish.controller");
 
 const offlineDonationController = {
 
@@ -55,6 +56,7 @@ const offlineDonationController = {
         pincode: pincode || prasadamPincode || "",
         occasion: occasion || "",
         sevakName: sevakName || "",
+        sevakMobile: sevakMobile || "",
         sevaDate: sevaDate || "",
         dob: dob || "",
         status: "paid",
@@ -100,6 +102,11 @@ const offlineDonationController = {
       } catch (waErr) {
         console.error("WhatsApp error:", waErr.message);
       }
+
+      // Trigger same-day birthday/anniversary wish if seva date = today
+      maybeSendSameDayWish(donation).catch(err =>
+        console.error("[Same-day wish] offline donation error:", err.message)
+      );
 
       return res.json({
         success: true,
