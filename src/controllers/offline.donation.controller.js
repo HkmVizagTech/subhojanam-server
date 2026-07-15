@@ -16,7 +16,7 @@ const offlineDonationController = {
         occasion, showInTransactions,
         mahaprasadam, prasadamAddressOption, prasadamName, prasadamMobile, prasadamAddress,
         prasadamCity, prasadamState, prasadamPincode,
-        sevakName, sevaDate,
+        sevakName, sevakMobile, sevaDate,
         dob,
       } = req.body;
 
