@@ -62,7 +62,7 @@ const sendToExternalApi = async (donation, payment = {}) => {
 
     const resp = await axios.post(EXTERNAL_API_URL, payload, {
       headers,
-      timeout: 10000,
+      timeout: 30000, // 30s — DCC can be slow on busy days
     });
 
     console.log("✅ External API Response Status:", resp.status);
@@ -78,11 +78,22 @@ const sendToExternalApi = async (donation, payment = {}) => {
 
     return resp.data;
   } catch (error) {
+    if (error.code === "ECONNABORTED" || error.message?.includes("timeout")) {
+      // DCC timed out on our end — but DCC server may have still processed the donation.
+      // Throw a special error so callers can treat this as "unknown" not "definitely failed".
+      console.error("⏱️ DCC API timeout — DCC may have still processed. Use Missing Receipts to verify.");
+      const timeoutErr = new Error("DCC_TIMEOUT: Request timed out — DCC may have processed. Check via Missing Receipts.");
+      timeoutErr.isDCCTimeout = true;
+      throw timeoutErr;
+    }
     if (error.response) {
-      console.error(
-        "❌ External API call failed with status:",
-        error.response.status,
-      );
+      const msg = error.response.data?.Message || error.response.data?.message || "";
+      // DCC returns 400 when payment already exists — treat as success
+      if (error.response.status === 400 && msg.toLowerCase().includes("transaction details exist")) {
+        console.log("✅ DCC: Transaction already exists — treating as registered.");
+        return { alreadyExists: true, Message: msg };
+      }
+      console.error("❌ External API call failed with status:", error.response.status);
       console.error("Error response:", error.response.data);
     } else {
       console.error("❌ External API call failed:", error.message);

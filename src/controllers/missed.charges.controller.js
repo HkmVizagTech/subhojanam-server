@@ -89,6 +89,13 @@ const missedChargesController = {
             $set: { externalApiResponse: apiResponse, externalApiSentAt: new Date(), donorNumber: apiResponse?.DonorNumber || "" },
           });
         } catch (apiErr) {
+          if (apiErr.isDCCTimeout) {
+            return res.status(202).json({
+              success: false,
+              dccTimeout: true,
+              message: "DCC API timed out — DCC may have still processed this. Wait a few minutes and try again, or check DCC dashboard. If confirmed, use the re-send tool.",
+            });
+          }
           return res.status(500).json({ success: false, message: "DCC API failed: " + apiErr.message });
         }
       }
@@ -221,6 +228,15 @@ const missedChargesController = {
           $set: { externalApiResponse: apiResponse, externalApiSentAt: new Date(), donorNumber: apiResponse?.DonorNumber || "" },
         });
       } catch (apiErr) {
+        if (apiErr.isDCCTimeout) {
+          // Don't delete the record — DCC may have processed it
+          return res.status(202).json({
+            success: false,
+            dccTimeout: true,
+            donationId: newDonation._id,
+            message: "Record created but DCC timed out. DCC may have still processed it — wait a few minutes and check Missing Receipts again.",
+          });
+        }
         await donationModle.findByIdAndDelete(newDonation._id);
         return res.status(500).json({ success: false, message: `DCC API failed: ${apiErr.message}` });
       }
