@@ -7,6 +7,7 @@ const festivalCampaignSchema = new mongoose.Schema(
     desktopImageUrl: { type: String, required: true },
     mobileImageUrl: { type: String, required: true },
     linkUrl: { type: String, default: "#donate" },
+    minDonationAmount: { type: Number, default: 100 },
     theme: {
       primaryColor: { type: String, default: "#0A97EF" },   // buttons, headings, borders
       accentColor:  { type: String, default: "#2196f3" },   // gradient pair for buttons

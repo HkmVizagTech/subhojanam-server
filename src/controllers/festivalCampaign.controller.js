@@ -27,7 +27,7 @@ const festivalCampaignController = {
   // Admin: create a new festival campaign with desktop + mobile banner images
   createFestivalCampaign: async (req, res) => {
     try {
-      const { name, utmCampaign, linkUrl, primaryColor, accentColor, bgColor } = req.body;
+      const { name, utmCampaign, linkUrl, primaryColor, accentColor, bgColor, minDonationAmount } = req.body;
 
       if (!name || !utmCampaign) {
         return res.status(400).json({ success: false, message: "Name and UTM campaign key are required" });
@@ -55,6 +55,7 @@ const festivalCampaignController = {
         desktopImageUrl: desktopResult.secure_url,
         mobileImageUrl: mobileResult.secure_url,
         linkUrl: linkUrl || "#donate",
+        minDonationAmount: Number(minDonationAmount) || 100,
         theme: {
           primaryColor: primaryColor || "#0A97EF",
           accentColor:  accentColor  || "#2196f3",
@@ -107,13 +108,14 @@ const festivalCampaignController = {
   updateFestivalCampaign: async (req, res) => {
     try {
       const { id } = req.params;
-      const { name, linkUrl, primaryColor, accentColor, bgColor } = req.body;
+      const { name, linkUrl, primaryColor, accentColor, bgColor, minDonationAmount } = req.body;
 
       const campaign = await FestivalCampaign.findById(id);
       if (!campaign) return res.status(404).json({ success: false, message: "Not found" });
 
       if (name) campaign.name = name;
       if (linkUrl) campaign.linkUrl = linkUrl;
+      if (minDonationAmount) campaign.minDonationAmount = Number(minDonationAmount);
       if (primaryColor) campaign.theme.primaryColor = primaryColor;
       if (accentColor)  campaign.theme.accentColor  = accentColor;
       if (bgColor)      campaign.theme.bgColor       = bgColor;
