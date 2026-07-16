@@ -153,6 +153,7 @@ const { donationModle } = require("./src/models/donation.model");
 const { sendPendingWhatsapp } = require("./src/services/whatsapp.service");
 const cron = require("node-cron");
 const { runDailyWishes } = require("./src/controllers/wish.controller");
+const { runPendingReminders } = require("./src/controllers/pendingReminder.controller");
 
 const app = express();
 
@@ -284,6 +285,20 @@ const server = async () => {
         { timezone: "Asia/Kolkata" },
       );
       console.log("📅 Daily wishes cron scheduled for 8:00 AM IST");
+
+      // Pending payment reminder job — every 15 minutes
+      cron.schedule(
+        "*/15 * * * *",
+        async () => {
+          try {
+            await runPendingReminders();
+          } catch (err) {
+            console.error("Pending reminders cron error:", err.message);
+          }
+        },
+        { timezone: "Asia/Kolkata" },
+      );
+      console.log("📅 Pending payment reminders cron scheduled every 15 minutes");
     });
   } catch (error) {
     console.log("❌ Server disconnected", error);

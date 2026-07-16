@@ -9,6 +9,7 @@ const { offlineDonationController } = require("../controllers/offline.donation.c
 const { prasadamController } = require("../controllers/prasadam.controller");
 const { subscriptionRepairController } = require("../controllers/subscription.repair.controller");
 const { wishController } = require("../controllers/wish.controller");
+const { pendingReminderController } = require("../controllers/pendingReminder.controller");
 const { festivalCampaignController } = require("../controllers/festivalCampaign.controller");
 const multer = require("multer");
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
@@ -51,6 +52,9 @@ adminRouter.post("/subscription-repair/bulk-resend-dcc", subscriptionRepairContr
 
 adminRouter.get("/wishes/preview-today", wishController.previewTodaysWishes);
 adminRouter.post("/wishes/trigger", wishController.triggerDailyWishes);
+
+adminRouter.get("/pending-reminders/preview", pendingReminderController.previewPendingReminders);
+adminRouter.post("/pending-reminders/trigger", pendingReminderController.triggerPendingReminders);
 
 adminRouter.post(
   "/festival-campaigns",
