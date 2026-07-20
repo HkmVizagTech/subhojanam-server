@@ -11,6 +11,7 @@ const donationSchema = new mongoose.Schema(
     dob: { type: String, required: false },
     lastBirthdayWishSentYear: { type: Number },
     lastAnniversaryWishSentYear: { type: Number },
+    lastSevakWishSentYear: { type: Number },
     amount: { type: Number, required: true },
     razorpayOrderId: String,
     razorpayPaymentId: String,
