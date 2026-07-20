@@ -236,7 +236,7 @@ const sendCelebrationWishToSevak = async (phone, sevakName, occasion) => {
           parameters: [
             {
               type: "image",
-              image: { link: process.env.OCCASION_WISH_IMAGE_URL },
+              image: { link: "https://res.cloudinary.com/ddmzeqpkc/image/upload/f_auto,q_auto/celebration_jdgpi3" },
             },
           ],
         },
@@ -270,7 +270,7 @@ const sendCelebrationWishToDonor = async (phone, donorName, sevakName, occasion)
           parameters: [
             {
               type: "image",
-              image: { link: process.env.OCCASION_WISH_IMAGE_URL },
+              image: { link: "https://res.cloudinary.com/ddmzeqpkc/image/upload/f_auto,q_auto/celebration_jdgpi3" },
             },
           ],
         },
@@ -306,7 +306,7 @@ const sendMemorialWishToSevak = async (phone, sevakName) => {
           parameters: [
             {
               type: "image",
-              image: { link: process.env.MEMORIAL_WISH_IMAGE_URL || process.env.OCCASION_WISH_IMAGE_URL },
+              image: { link: "https://res.cloudinary.com/ddmzeqpkc/image/upload/f_auto,q_auto/memorial_p6bu9c" },
             },
           ],
         },
@@ -337,7 +337,7 @@ const sendMemorialWishToDonor = async (phone, donorName, sevakName) => {
           parameters: [
             {
               type: "image",
-              image: { link: process.env.MEMORIAL_WISH_IMAGE_URL || process.env.OCCASION_WISH_IMAGE_URL },
+              image: { link: "https://res.cloudinary.com/ddmzeqpkc/image/upload/f_auto,q_auto/memorial_p6bu9c" },
             },
           ],
         },
