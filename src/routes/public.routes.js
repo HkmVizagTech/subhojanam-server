@@ -6,11 +6,12 @@ const publicRouter = express.Router();
 
 publicRouter.get("/festival-campaign", festivalCampaignController.getCampaignByUtm);
 
-// Temporary diagnostic — will be removed after investigation
+// Temporary diagnostic
 publicRouter.get("/diag-payments", async (req, res) => {
   try {
     const ids = (req.query.ids || "").split(",").filter(id => id.startsWith("pay_"));
-    if (!ids.length) return res.json({ error: "No valid payment IDs" });
+    const subId = req.query.subId;
+
     const results = await Promise.all(ids.map(async (paymentId) => {
       const d = await donationModle.findOne({ razorpayPaymentId: paymentId })
         .select("name mobile amount status razorpayPaymentId subscriptionId isRecurring receiptGeneratedAt externalApiSentAt donorNumber webhookProcessed createdAt");
@@ -23,29 +24,19 @@ publicRouter.get("/diag-payments", async (req, res) => {
         createdAt: d.createdAt,
       };
     }));
-    res.json({ results });
+
+    // Also check if subscription original exists
+    let subRecords = [];
+    if (subId) {
+      subRecords = await donationModle.find({ subscriptionId: subId })
+        .sort({ createdAt: 1 })
+        .select("name mobile amount status subscriptionId isRecurring receiptGeneratedAt webhookProcessed createdAt razorpayPaymentId");
+    }
+
+    res.json({ results, subRecords });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
-});
-
-// Webhook signature test — logs what our server receives vs what it expects
-publicRouter.post("/test-webhook-sig", express.raw({ type: "application/json" }), (req, res) => {
-  const crypto = require("crypto");
-  const signature = req.headers["x-razorpay-signature"];
-  const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
-  const body = req.body.toString();
-
-  const expected = crypto.createHmac("sha256", secret || "").update(body).digest("hex");
-
-  res.json({
-    signatureReceived: signature || "MISSING",
-    signatureExpected: expected,
-    secretConfigured: !!secret,
-    secretLength: secret ? secret.length : 0,
-    match: signature === expected,
-    bodyLength: body.length,
-  });
 });
 
 module.exports = { publicRouter };
