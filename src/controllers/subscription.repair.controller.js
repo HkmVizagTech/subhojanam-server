@@ -597,6 +597,137 @@ const subscriptionRepairController = {
     }
   },
 
+  // BULK sync missing charges — same as syncMissingCharge but loops over many payment IDs
+  bulkSyncMissingCharges: async (req, res) => {
+    try {
+      const { subscriptionId, paymentIds } = req.body;
+      if (!subscriptionId || !Array.isArray(paymentIds) || paymentIds.length === 0) {
+        return res.status(400).json({ success: false, message: "subscriptionId and paymentIds array required" });
+      }
+
+      const original = await donationModle.findOne({ subscriptionId, isRecurring: true }).sort({ createdAt: 1 });
+      if (!original) {
+        return res.status(404).json({ success: false, message: "No original donation found for this subscription" });
+      }
+
+      const results = [];
+
+      for (const paymentId of paymentIds) {
+        const result = { paymentId };
+        try {
+          const existing = await donationModle.findOne({ razorpayPaymentId: paymentId });
+          if (existing) {
+            result.status = "already_exists";
+            result.success = true;
+            results.push(result);
+            continue;
+          }
+
+          const payment = await razorpay.payments.fetch(paymentId);
+
+          const newDonation = await donationModle.create({
+            name: original.name,
+            email: original.email,
+            mobile: original.mobile,
+            amount: payment.amount ? payment.amount / 100 : original.amount,
+            certificate: original.certificate,
+            panNumber: original.panNumber,
+            address: original.address,
+            city: original.city,
+            state: original.state,
+            pincode: original.pincode,
+            occasion: original.occasion,
+            sevakName: original.sevakName || "",
+            sevakMobile: original.sevakMobile || "",
+            sevaDate: original.sevaDate || "",
+            dob: original.dob || "",
+            mahaprasadam: original.mahaprasadam,
+            prasadamAddressOption: original.prasadamAddressOption,
+            prasadamAddress: original.prasadamAddress,
+            prasadamName: original.prasadamName || "",
+            prasadamMobile: original.prasadamMobile || "",
+            prasadamCity: original.prasadamCity || "",
+            prasadamState: original.prasadamState || "",
+            prasadamPincode: original.prasadamPincode || "",
+            utm: original.utm,
+            subscriptionId,
+            isRecurring: true,
+            razorpayPaymentId: paymentId,
+            status: "paid",
+            webhookProcessed: true,
+            webhookProcessedAt: new Date(),
+            createdAt: payment.created_at ? new Date(payment.created_at * 1000) : new Date(),
+          });
+
+          result.donationId = newDonation._id;
+          result.amount = newDonation.amount;
+
+          // DCC
+          let apiResponse = null;
+          try {
+            apiResponse = await externalDonationService.sendToExternalApi(newDonation, payment);
+            await donationModle.findByIdAndUpdate(newDonation._id, {
+              $set: { externalApiResponse: apiResponse, externalApiSentAt: new Date(), donorNumber: apiResponse?.DonorNumber || "" },
+            });
+            result.receiptNumber = apiResponse?.ReceiptNumber || "";
+          } catch (dccErr) {
+            const errMsg = dccErr?.response?.data?.Message || dccErr.message || "";
+            if (dccErr?.response?.status === 400 && errMsg.toLowerCase().includes("transaction details exist")) {
+              result.status = "dcc_already_had_it";
+              result.success = true;
+              results.push(result);
+              continue;
+            }
+            result.error = `DCC failed: ${dccErr.message}`;
+            result.success = false;
+            results.push(result);
+            continue;
+          }
+
+          // Receipt
+          let filePath = null;
+          try {
+            filePath = await receiptService.generateReceipt(newDonation, apiResponse);
+          } catch (receiptErr) {
+            result.error = `Receipt failed: ${receiptErr.message}`;
+            result.success = true;
+            result.note = "DCC succeeded, use Missing Receipts to regenerate PDF";
+            results.push(result);
+            continue;
+          }
+
+          // WhatsApp
+          try {
+            let phone = newDonation.mobile.replace(/\D/g, "");
+            if (!phone.startsWith("91")) phone = `91${phone}`;
+            await whatsappService.sendReceiptWhatsapp(phone, filePath, newDonation.name, newDonation.amount, "subscription");
+            result.whatsappSent = true;
+          } catch (waErr) {
+            result.whatsappError = waErr.message;
+          }
+
+          result.status = "created";
+          result.success = true;
+        } catch (err) {
+          result.error = err.message;
+          result.success = false;
+        }
+        results.push(result);
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+
+      const succeeded = results.filter(r => r.success).length;
+      res.json({
+        success: true,
+        message: `${succeeded}/${paymentIds.length} processed successfully`,
+        results,
+      });
+    } catch (error) {
+      console.error("Bulk sync missing charges error:", error);
+      res.status(500).json({ success: false, message: error.message });
+    }
+  },
+
 };
 
 module.exports = { subscriptionRepairController };
