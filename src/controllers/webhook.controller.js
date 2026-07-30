@@ -107,9 +107,14 @@ const webHookControler = {
                     donorNumber: apiResponse?.DonorNumber || "",
                   },
                 });
-                console.log("✅ BCC API done:", apiResponse?.ReceiptNumber);
+                console.log("✅ DCC API done:", apiResponse?.ReceiptNumber);
               } catch (apiErr) {
-                console.error("⚠️ BCC API error:", apiErr.message);
+                console.error("⚠️ DCC API error:", apiErr.message);
+                // Don't generate receipt without DCC — Missing Receipts scan will retry
+                await donationModle.findByIdAndUpdate(donation._id, {
+                  $set: { receiptGenerationLastError: `DCC failed: ${apiErr.message}` },
+                });
+                return res.status(200).send("DCC failed — will retry via Missing Receipts");
               }
 
               const filePath = await receiptService.generateReceipt(
@@ -248,6 +253,9 @@ const webHookControler = {
               clientIp: originalDonation.clientIp,
               userAgent: originalDonation.userAgent,
               pageUrl: originalDonation.pageUrl,
+              dob: originalDonation.dob || "",
+              sevakMobile: originalDonation.sevakMobile || "",
+              sevaDate: originalDonation.sevaDate || "",
               subscriptionId: payment.subscription_id,
               isRecurring: true,
               razorpayPaymentId: payment.id,
@@ -317,6 +325,8 @@ const webHookControler = {
 
           } catch (subErr) {
             console.error("❌ subscription.charged error:", subErr.message);
+            console.error("❌ subscription.charged stack:", subErr.stack);
+            console.error("❌ subscription.charged payment:", payment?.id, "subscription:", payment?.subscription_id);
           }
 
           break;
