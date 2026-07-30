@@ -6,7 +6,6 @@ const publicRouter = express.Router();
 
 publicRouter.get("/festival-campaign", festivalCampaignController.getCampaignByUtm);
 
-// Temporary diagnostic
 publicRouter.get("/diag-payments", async (req, res) => {
   try {
     const ids = (req.query.ids || "").split(",").filter(id => id.startsWith("pay_"));
@@ -14,23 +13,31 @@ publicRouter.get("/diag-payments", async (req, res) => {
 
     const results = await Promise.all(ids.map(async (paymentId) => {
       const d = await donationModle.findOne({ razorpayPaymentId: paymentId })
-        .select("name mobile amount status razorpayPaymentId subscriptionId isRecurring receiptGeneratedAt externalApiSentAt donorNumber webhookProcessed createdAt");
+        .select("name mobile amount status razorpayPaymentId subscriptionId isRecurring receiptGeneratedAt externalApiSentAt donorNumber webhookProcessed createdAt receiptGenerationLastError");
       if (!d) return { paymentId, inDB: false };
       return {
         paymentId, inDB: true, name: d.name, mobile: d.mobile,
         amount: d.amount, status: d.status, isRecurring: d.isRecurring,
         webhookProcessed: d.webhookProcessed, dccSent: !!d.externalApiSentAt,
         donorNumber: d.donorNumber, receiptGenerated: !!d.receiptGeneratedAt,
-        createdAt: d.createdAt,
+        lastError: d.receiptGenerationLastError, createdAt: d.createdAt,
       };
     }));
 
-    // Also check if subscription original exists
     let subRecords = [];
     if (subId) {
-      subRecords = await donationModle.find({ subscriptionId: subId })
+      const docs = await donationModle.find({ subscriptionId: subId })
         .sort({ createdAt: 1 })
-        .select("name mobile amount status subscriptionId isRecurring receiptGeneratedAt webhookProcessed createdAt razorpayPaymentId");
+        .select("name mobile amount status subscriptionId isRecurring receiptGeneratedAt externalApiSentAt donorNumber webhookProcessed createdAt razorpayPaymentId receiptGenerationLastError");
+      subRecords = docs.map(d => ({
+        id: d._id, name: d.name.trim(), mobile: d.mobile,
+        amount: d.amount, status: d.status, isRecurring: d.isRecurring,
+        webhookProcessed: d.webhookProcessed,
+        dccSent: !!d.externalApiSentAt, donorNumber: d.donorNumber,
+        receiptGenerated: !!d.receiptGeneratedAt,
+        lastError: d.receiptGenerationLastError,
+        paymentId: d.razorpayPaymentId, createdAt: d.createdAt,
+      }));
     }
 
     res.json({ results, subRecords });
