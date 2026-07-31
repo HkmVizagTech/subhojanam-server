@@ -106,4 +106,25 @@ publicRouter.get("/diag-find-by-payment", async (req, res) => {
   }
 });
 
+publicRouter.get("/diag-fix-orphan", async (req, res) => {
+  try {
+    const { orphanRecordId, correctName, correctMobile, correctAmount, correctSubscriptionId } = req.query;
+    if (!orphanRecordId) return res.json({ error: "orphanRecordId required" });
+    const d = await donationModelForBackfill.findById(orphanRecordId);
+    if (!d) return res.json({ error: "Record not found" });
+
+    const before = { name: d.name, mobile: d.mobile, amount: d.amount, subscriptionId: d.subscriptionId };
+
+    if (correctName) d.name = correctName;
+    if (correctMobile) d.mobile = correctMobile;
+    if (correctAmount) d.amount = Number(correctAmount);
+    if (correctSubscriptionId) d.subscriptionId = correctSubscriptionId;
+    await d.save();
+
+    res.json({ success: true, before, after: { name: d.name, mobile: d.mobile, amount: d.amount, subscriptionId: d.subscriptionId } });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 module.exports = { publicRouter };
