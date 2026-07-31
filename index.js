@@ -152,7 +152,8 @@ const helmet = require("helmet");
 const { donationModle } = require("./src/models/donation.model");
 const { sendPendingWhatsapp } = require("./src/services/whatsapp.service");
 const cron = require("node-cron");
-const { runDailyWishes } = require("./src/controllers/wish.controller");
+// TEMPORARILY DISABLED — do not push/enable until instructed
+// const { runDailyWishes } = require("./src/controllers/wish.controller");
 const { runPendingReminders } = require("./src/controllers/pendingReminder.controller");
 
 const app = express();
@@ -272,19 +273,20 @@ const server = async () => {
       );
 
       // Daily Birthday/Anniversary wish job — 8:00 AM IST every day
-      cron.schedule(
-        "0 8 * * *",
-        async () => {
-          console.log("⏰ Running daily birthday/anniversary wishes...");
-          try {
-            await runDailyWishes();
-          } catch (err) {
-            console.error("Daily wishes cron error:", err.message);
-          }
-        },
-        { timezone: "Asia/Kolkata" },
-      );
-      console.log("📅 Daily wishes cron scheduled for 8:00 AM IST");
+      // TEMPORARILY DISABLED — do not push/enable until instructed
+      // cron.schedule(
+      //   "0 8 * * *",
+      //   async () => {
+      //     console.log("⏰ Running daily birthday/anniversary wishes...");
+      //     try {
+      //       await runDailyWishes();
+      //     } catch (err) {
+      //       console.error("Daily wishes cron error:", err.message);
+      //     }
+      //   },
+      //   { timezone: "Asia/Kolkata" },
+      // );
+      // console.log("📅 Daily wishes cron scheduled for 8:00 AM IST");
 
       // Pending payment reminder job — every 15 minutes
       cron.schedule(

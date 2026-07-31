@@ -45,6 +45,7 @@ adminRouter.get("/subscription-repair/diagnose", subscriptionRepairController.di
 adminRouter.post("/subscription-repair/fix", subscriptionRepairController.fixSubscription);
 adminRouter.post("/subscription-repair/sync-charge", subscriptionRepairController.syncMissingCharge);
 adminRouter.post("/subscription-repair/bulk-sync-charges", subscriptionRepairController.bulkSyncMissingCharges);
+adminRouter.get("/subscription-repair/reconcile-all", subscriptionRepairController.reconcileAllSubscriptions);
 adminRouter.get("/subscription-repair/verify", subscriptionRepairController.verifyPayment);
 adminRouter.post("/subscription-repair/fix-payment-donor", subscriptionRepairController.fixPaymentDonor);
 adminRouter.get("/subscription-repair/bulk-diagnose", subscriptionRepairController.bulkDiagnoseMisattributed);

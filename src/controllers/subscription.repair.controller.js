@@ -728,6 +728,83 @@ const subscriptionRepairController = {
     }
   },
 
+  // Reconcile ALL active subscriptions against Razorpay's invoice history —
+  // finds every subscription with missing recurring charges, not just one at a time.
+  reconcileAllSubscriptions: async (req, res) => {
+    try {
+      // Get every distinct subscriptionId we know about
+      const subIds = await donationModle.distinct("subscriptionId", {
+        isRecurring: true,
+        subscriptionId: { $exists: true, $ne: null, $ne: "" },
+      });
+
+      const report = [];
+
+      for (const subId of subIds) {
+        const entry = { subscriptionId: subId };
+        try {
+          // Original signup record — for donor name/mobile display
+          const original = await donationModle
+            .findOne({ subscriptionId: subId, isRecurring: true })
+            .sort({ createdAt: 1 });
+
+          entry.donorName = original?.name?.trim() || "Unknown";
+          entry.mobile = original?.mobile || "";
+
+          // Razorpay subscription status
+          let subscription;
+          try {
+            subscription = await razorpay.subscriptions.fetch(subId);
+            entry.razorpayStatus = subscription.status;
+          } catch (e) {
+            entry.razorpayStatus = "fetch_failed";
+            entry.error = `Could not fetch subscription: ${e.message}`;
+            report.push(entry);
+            continue;
+          }
+
+          // All invoices (= actual charges) Razorpay has recorded for this subscription
+          const invoiceResp = await razorpay.invoices.all({ subscription_id: subId, count: 100 });
+          const paidInvoices = (invoiceResp.items || []).filter(inv => inv.status === "paid" && inv.payment_id);
+          const razorpayPaymentIds = paidInvoices.map(inv => inv.payment_id);
+
+          // What we actually have stored for this subscription
+          const ourRecords = await donationModle.find({ subscriptionId: subId })
+            .select("razorpayPaymentId");
+          const ourPaymentIds = new Set(ourRecords.map(r => r.razorpayPaymentId).filter(Boolean));
+
+          const missing = razorpayPaymentIds.filter(pid => !ourPaymentIds.has(pid));
+
+          entry.totalRazorpayCharges = razorpayPaymentIds.length;
+          entry.totalInOurSystem = ourRecords.length;
+          entry.missingCount = missing.length;
+          entry.missingPaymentIds = missing;
+          entry.fullySynced = missing.length === 0;
+
+        } catch (err) {
+          entry.error = err.message;
+        }
+
+        report.push(entry);
+        // Gentle delay to avoid hitting Razorpay rate limits across many subscriptions
+        await new Promise(resolve => setTimeout(resolve, 350));
+      }
+
+      const summary = {
+        totalSubscriptions: report.length,
+        fullySynced: report.filter(r => r.fullySynced).length,
+        withMissingCharges: report.filter(r => r.missingCount > 0).length,
+        withErrors: report.filter(r => r.error).length,
+        totalMissingCharges: report.reduce((sum, r) => sum + (r.missingCount || 0), 0),
+      };
+
+      res.json({ success: true, summary, report });
+    } catch (error) {
+      console.error("Reconcile all subscriptions error:", error);
+      res.status(500).json({ success: false, message: error.message });
+    }
+  },
+
 };
 
 module.exports = { subscriptionRepairController };
