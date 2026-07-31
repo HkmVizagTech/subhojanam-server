@@ -30,13 +30,14 @@ publicRouter.get("/diag-payments", async (req, res) => {
         .sort({ createdAt: 1 })
         .select("name mobile amount status subscriptionId isRecurring receiptGeneratedAt externalApiSentAt donorNumber webhookProcessed createdAt razorpayPaymentId receiptGenerationLastError");
       subRecords = docs.map(d => ({
-        id: d._id, name: d.name.trim(), mobile: d.mobile,
+        id: d._id, name: (d.name || "").trim(), mobile: d.mobile,
         amount: d.amount, status: d.status, isRecurring: d.isRecurring,
         webhookProcessed: d.webhookProcessed,
         dccSent: !!d.externalApiSentAt, donorNumber: d.donorNumber,
         receiptGenerated: !!d.receiptGeneratedAt,
         lastError: d.receiptGenerationLastError,
-        paymentId: d.razorpayPaymentId, createdAt: d.createdAt,
+        paymentIdRaw: d.razorpayPaymentId === undefined ? "FIELD_UNDEFINED" : (d.razorpayPaymentId === null ? "FIELD_NULL" : (d.razorpayPaymentId === "" ? "FIELD_EMPTY_STRING" : d.razorpayPaymentId)),
+        createdAt: d.createdAt,
       }));
     }
 
