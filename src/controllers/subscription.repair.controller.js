@@ -729,10 +729,10 @@ const subscriptionRepairController = {
   },
 
   // Reconcile ALL active subscriptions against Razorpay's invoice history —
-  // finds every subscription with missing recurring charges, not just one at a time.
+  // for each linked payment, checks if it exists in our DB AND if a receipt was
+  // actually generated (catches DCC-silent-failure cases, not just missing records).
   reconcileAllSubscriptions: async (req, res) => {
     try {
-      // Get every distinct subscriptionId we know about
       const subIds = await donationModle.distinct("subscriptionId", {
         isRecurring: true,
         subscriptionId: { $exists: true, $ne: null, $ne: "" },
@@ -743,7 +743,6 @@ const subscriptionRepairController = {
       for (const subId of subIds) {
         const entry = { subscriptionId: subId };
         try {
-          // Original signup record — for donor name/mobile display
           const original = await donationModle
             .findOne({ subscriptionId: subId, isRecurring: true })
             .sort({ createdAt: 1 });
@@ -751,7 +750,6 @@ const subscriptionRepairController = {
           entry.donorName = original?.name?.trim() || "Unknown";
           entry.mobile = original?.mobile || "";
 
-          // Razorpay subscription status
           let subscription;
           try {
             subscription = await razorpay.subscriptions.fetch(subId);
@@ -763,44 +761,116 @@ const subscriptionRepairController = {
             continue;
           }
 
-          // All invoices (= actual charges) Razorpay has recorded for this subscription
+          // Every payment Razorpay has actually charged for this subscription
           const invoiceResp = await razorpay.invoices.all({ subscription_id: subId, count: 100 });
           const paidInvoices = (invoiceResp.items || []).filter(inv => inv.status === "paid" && inv.payment_id);
           const razorpayPaymentIds = paidInvoices.map(inv => inv.payment_id);
 
-          // What we actually have stored for this subscription
-          const ourRecords = await donationModle.find({ subscriptionId: subId })
-            .select("razorpayPaymentId");
-          const ourPaymentIds = new Set(ourRecords.map(r => r.razorpayPaymentId).filter(Boolean));
+          // Pull our full records (not just existence) for these payment IDs
+          const ourRecords = await donationModle.find({
+            subscriptionId: subId,
+            razorpayPaymentId: { $in: razorpayPaymentIds },
+          }).select("razorpayPaymentId receiptGeneratedAt externalApiSentAt donorNumber amount createdAt");
 
-          const missing = razorpayPaymentIds.filter(pid => !ourPaymentIds.has(pid));
+          const ourByPaymentId = {};
+          for (const r of ourRecords) ourByPaymentId[r.razorpayPaymentId] = r;
+
+          const missingEntirely = [];      // not in our DB at all
+          const noReceiptGenerated = [];   // in DB, but receipt was never generated (DCC silent-fail case)
+          const fullyOk = [];               // in DB AND receipt generated
+
+          for (const pid of razorpayPaymentIds) {
+            const rec = ourByPaymentId[pid];
+            if (!rec) {
+              missingEntirely.push(pid);
+            } else if (!rec.receiptGeneratedAt) {
+              noReceiptGenerated.push({ paymentId: pid, dccSent: !!rec.externalApiSentAt, amount: rec.amount });
+            } else {
+              fullyOk.push(pid);
+            }
+          }
 
           entry.totalRazorpayCharges = razorpayPaymentIds.length;
-          entry.totalInOurSystem = ourRecords.length;
-          entry.missingCount = missing.length;
-          entry.missingPaymentIds = missing;
-          entry.fullySynced = missing.length === 0;
+          entry.fullyOkCount = fullyOk.length;
+          entry.missingEntirelyCount = missingEntirely.length;
+          entry.noReceiptCount = noReceiptGenerated.length;
+          entry.missingEntirely = missingEntirely;
+          entry.noReceiptGenerated = noReceiptGenerated;
+          entry.needsAttention = missingEntirely.length + noReceiptGenerated.length;
+          entry.fullySynced = entry.needsAttention === 0;
 
         } catch (err) {
           entry.error = err.message;
         }
 
         report.push(entry);
-        // Gentle delay to avoid hitting Razorpay rate limits across many subscriptions
         await new Promise(resolve => setTimeout(resolve, 350));
       }
 
       const summary = {
         totalSubscriptions: report.length,
         fullySynced: report.filter(r => r.fullySynced).length,
-        withMissingCharges: report.filter(r => r.missingCount > 0).length,
+        needsAttention: report.filter(r => r.needsAttention > 0).length,
         withErrors: report.filter(r => r.error).length,
-        totalMissingCharges: report.reduce((sum, r) => sum + (r.missingCount || 0), 0),
+        totalMissingEntirely: report.reduce((sum, r) => sum + (r.missingEntirelyCount || 0), 0),
+        totalNoReceipt: report.reduce((sum, r) => sum + (r.noReceiptCount || 0), 0),
       };
 
       res.json({ success: true, summary, report });
     } catch (error) {
       console.error("Reconcile all subscriptions error:", error);
+      res.status(500).json({ success: false, message: error.message });
+    }
+  },
+
+  // For a record that EXISTS in our DB but never got a receipt (DCC silently
+  // failed earlier) — retry DCC + generate receipt + send WhatsApp, no new record created.
+  regenerateReceiptForExisting: async (req, res) => {
+    try {
+      const { paymentId } = req.body;
+      if (!paymentId) {
+        return res.status(400).json({ success: false, message: "paymentId required" });
+      }
+
+      const donation = await donationModle.findOne({ razorpayPaymentId: paymentId });
+      if (!donation) {
+        return res.status(404).json({ success: false, message: "No DB record found for this payment" });
+      }
+      if (donation.receiptGeneratedAt) {
+        return res.json({ success: false, message: "Receipt already generated for this payment" });
+      }
+
+      const payment = { id: paymentId };
+      let apiResponse = donation.externalApiResponse || null;
+
+      try {
+        if (!apiResponse) {
+          apiResponse = await externalDonationService.sendToExternalApi(donation, payment);
+          await donationModle.findByIdAndUpdate(donation._id, {
+            $set: { externalApiResponse: apiResponse, externalApiSentAt: new Date(), donorNumber: apiResponse?.DonorNumber || "" },
+          });
+        }
+      } catch (dccErr) {
+        const errMsg = dccErr?.response?.data?.Message || dccErr.message || "";
+        if (!(dccErr?.response?.status === 400 && errMsg.toLowerCase().includes("transaction details exist"))) {
+          return res.json({ success: false, message: `DCC still failing: ${dccErr.message}` });
+        }
+      }
+
+      const filePath = await receiptService.generateReceipt(donation, apiResponse);
+
+      let phone = donation.mobile.replace(/\D/g, "");
+      if (!phone.startsWith("91")) phone = `91${phone}`;
+      await whatsappService.sendReceiptWhatsapp(phone, filePath, donation.name, donation.amount, "subscription");
+
+      res.json({
+        success: true,
+        message: "Receipt generated and WhatsApp sent",
+        paymentId,
+        receiptNumber: apiResponse?.ReceiptNumber || "",
+      });
+    } catch (error) {
+      console.error("Regenerate receipt for existing error:", error);
       res.status(500).json({ success: false, message: error.message });
     }
   },
