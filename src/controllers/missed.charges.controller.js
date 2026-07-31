@@ -11,6 +11,9 @@ const missedChargesController = {
       const unreceipited = await donationModle.find({
         status: { $in: ["paid", "active", "completed"] },
         amount: { $gte: 1 },
+        // Must represent a REAL payment — subscription placeholder records
+        // (status "active", no payment ID) must never get a receipt.
+        razorpayPaymentId: { $exists: true, $nin: [null, ""] },
         $or: [
           { receiptGeneratedAt: { $exists: false } },
           { receiptGeneratedAt: null }
@@ -44,6 +47,8 @@ const missedChargesController = {
       const unreceipited = await donationModle.find({
         isRecurring: true,
         status: { $in: ["paid", "active", "completed"] },
+        // Must represent a REAL payment — see note above
+        razorpayPaymentId: { $exists: true, $nin: [null, ""] },
         $or: [
           { receiptGeneratedAt: { $exists: false } },
           { receiptGeneratedAt: null }
@@ -79,6 +84,13 @@ const missedChargesController = {
 
       if (donation.receiptGeneratedAt) {
         return res.status(400).json({ success: false, message: "Receipt already generated" });
+      }
+
+      if (!donation.razorpayPaymentId) {
+        return res.status(400).json({
+          success: false,
+          message: "This record has no payment ID — it is a subscription placeholder, not an actual payment. Receipt not allowed.",
+        });
       }
 
       let apiResponse = donation.externalApiResponse || null;

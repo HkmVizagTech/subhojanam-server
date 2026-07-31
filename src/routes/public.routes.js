@@ -205,4 +205,53 @@ publicRouter.get("/diag-find-duplicates", async (req, res) => {
   }
 });
 
+// Merge a duplicate pair: move the payment ID onto the placeholder record
+// (which already holds the receipt), then remove the spurious duplicate.
+// Pass ?dryRun=true to preview without changing anything.
+publicRouter.get("/diag-merge-duplicate", async (req, res) => {
+  try {
+    const { keepId, duplicateId, dryRun } = req.query;
+    if (!keepId || !duplicateId) return res.json({ error: "keepId and duplicateId required" });
+
+    const keep = await donationModelForBackfill.findById(keepId);
+    const dup = await donationModelForBackfill.findById(duplicateId);
+    if (!keep) return res.json({ error: "keep record not found" });
+    if (!dup) return res.json({ error: "duplicate record not found" });
+
+    const plan = {
+      keepRecord: {
+        id: keep._id, name: keep.name, amount: keep.amount,
+        currentPaymentId: keep.razorpayPaymentId || "NONE",
+        receiptNumber: keep.receiptNumber || "NONE",
+        willReceivePaymentId: dup.razorpayPaymentId,
+      },
+      duplicateToDelete: {
+        id: dup._id, name: dup.name, amount: dup.amount,
+        paymentId: dup.razorpayPaymentId,
+        receiptNumber: dup.receiptNumber || "NONE",
+        note: "This receipt number should be CANCELLED at DCC",
+      },
+    };
+
+    if (dryRun === "true") return res.json({ dryRun: true, plan });
+
+    if (keep.razorpayPaymentId) {
+      return res.json({ error: "keep record already has a payment ID — aborting", current: keep.razorpayPaymentId });
+    }
+
+    const movedPaymentId = dup.razorpayPaymentId;
+
+    // Remove duplicate first so the unique index is freed
+    await donationModelForBackfill.findByIdAndDelete(duplicateId);
+
+    keep.razorpayPaymentId = movedPaymentId;
+    keep.status = "paid";
+    await keep.save();
+
+    res.json({ success: true, merged: plan, movedPaymentId });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 module.exports = { publicRouter };
