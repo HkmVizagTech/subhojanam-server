@@ -266,4 +266,60 @@ publicRouter.get("/diag-merge-duplicate", async (req, res) => {
   }
 });
 
+publicRouter.get("/diag-safe-merge-candidates", async (req, res) => {
+  try {
+    const all = await donationModelForBackfill
+      .find({ status: { $in: ["paid", "active", "created"] } })
+      .select("name mobile amount razorpayPaymentId subscriptionId receiptNumber receiptGeneratedAt donorNumber createdAt status isRecurring")
+      .sort({ createdAt: 1 })
+      .lean();
+
+    const groups = {};
+    for (const d of all) {
+      const key = `${d.mobile}__${d.amount}`;
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(d);
+    }
+
+    const safeCandidates = [];
+
+    for (const key in groups) {
+      const recs = groups[key];
+      if (recs.length < 2) continue;
+
+      for (let i = 0; i < recs.length; i++) {
+        for (let j = i + 1; j < recs.length; j++) {
+          const a = recs[i], b = recs[j];
+          const minsApart = Math.abs(new Date(a.createdAt) - new Date(b.createdAt)) / 60000;
+          if (minsApart > 10) continue;
+
+          const aHasPay = (a.razorpayPaymentId || "").startsWith("pay_");
+          const bHasPay = (b.razorpayPaymentId || "").startsWith("pay_");
+          if (aHasPay === bHasPay) continue;
+
+          const placeholder = aHasPay ? b : a;
+          const real = aHasPay ? a : b;
+
+          // SAFE only if: placeholder has NO receipt, real HAS a receipt
+          if (!placeholder.receiptGeneratedAt && real.receiptGeneratedAt) {
+            safeCandidates.push({
+              name: (real.name || "").trim(),
+              mobile: real.mobile,
+              amount: real.amount,
+              minutesApart: Math.round(minsApart * 10) / 10,
+              placeholderId: placeholder._id,
+              realId: real._id,
+              realReceiptNumber: real.receiptNumber,
+            });
+          }
+        }
+      }
+    }
+
+    res.json({ count: safeCandidates.length, safeCandidates });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 module.exports = { publicRouter };
