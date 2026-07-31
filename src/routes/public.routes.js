@@ -84,4 +84,26 @@ publicRouter.get("/diag-backfill-paymentid", async (req, res) => {
   }
 });
 
+publicRouter.get("/diag-find-by-payment", async (req, res) => {
+  try {
+    const { paymentId } = req.query;
+    if (!paymentId) return res.json({ error: "paymentId required" });
+    const d = await donationModelForBackfill.findOne({ razorpayPaymentId: paymentId });
+    if (!d) return res.json({ found: false });
+    res.json({
+      found: true,
+      id: d._id,
+      name: d.name,
+      mobile: d.mobile,
+      amount: d.amount,
+      subscriptionId: d.subscriptionId || "NONE",
+      isRecurring: d.isRecurring,
+      receiptGenerated: !!d.receiptGeneratedAt,
+      createdAt: d.createdAt,
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 module.exports = { publicRouter };
