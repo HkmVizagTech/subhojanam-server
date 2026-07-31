@@ -67,4 +67,21 @@ publicRouter.get("/diag-invoices", async (req, res) => {
   }
 });
 
+const { donationModle: donationModelForBackfill } = require("../models/donation.model");
+
+publicRouter.get("/diag-backfill-paymentid", async (req, res) => {
+  try {
+    const { recordId, paymentId } = req.query;
+    if (!recordId || !paymentId) return res.json({ error: "recordId and paymentId required" });
+    const d = await donationModelForBackfill.findById(recordId);
+    if (!d) return res.json({ error: "Record not found" });
+    if (d.razorpayPaymentId) return res.json({ error: "Record already has a razorpayPaymentId, refusing to overwrite", current: d.razorpayPaymentId });
+    d.razorpayPaymentId = paymentId;
+    await d.save();
+    res.json({ success: true, recordId, paymentId, name: d.name });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 module.exports = { publicRouter };
