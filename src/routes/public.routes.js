@@ -205,50 +205,62 @@ publicRouter.get("/diag-find-duplicates", async (req, res) => {
   }
 });
 
-// Merge a duplicate pair: move the payment ID onto the placeholder record
-// (which already holds the receipt), then remove the spurious duplicate.
-// Pass ?dryRun=true to preview without changing anything.
+// Merge a duplicate pair. Keeps the record holding the REAL payment ID and
+// receipt; deletes the spurious placeholder. Refuses any unsafe combination.
+// Pass ?dryRun=true to preview.
 publicRouter.get("/diag-merge-duplicate", async (req, res) => {
   try {
-    const { keepId, duplicateId, dryRun } = req.query;
-    if (!keepId || !duplicateId) return res.json({ error: "keepId and duplicateId required" });
+    const { placeholderId, realId, dryRun } = req.query;
+    if (!placeholderId || !realId) {
+      return res.json({ error: "placeholderId (the record with no payment ID) and realId (the record with pay_ ID) required" });
+    }
 
-    const keep = await donationModelForBackfill.findById(keepId);
-    const dup = await donationModelForBackfill.findById(duplicateId);
-    if (!keep) return res.json({ error: "keep record not found" });
-    if (!dup) return res.json({ error: "duplicate record not found" });
+    const placeholder = await donationModelForBackfill.findById(placeholderId);
+    const real = await donationModelForBackfill.findById(realId);
+    if (!placeholder) return res.json({ error: "placeholder record not found" });
+    if (!real) return res.json({ error: "real record not found" });
+
+    // Safety guards
+    if (placeholder.razorpayPaymentId) {
+      return res.json({ error: "placeholder record HAS a payment ID — wrong record passed, aborting" });
+    }
+    if (!(real.razorpayPaymentId || "").startsWith("pay_")) {
+      return res.json({ error: "real record does not have a valid pay_ ID — aborting" });
+    }
+    if (!real.receiptGeneratedAt) {
+      return res.json({ error: "real record has no receipt — refusing to delete the placeholder which may hold the only receipt" });
+    }
+    if (real.mobile !== placeholder.mobile) {
+      return res.json({ error: "mobile numbers differ between the two records — aborting" });
+    }
 
     const plan = {
-      keepRecord: {
-        id: keep._id, name: keep.name, amount: keep.amount,
-        currentPaymentId: keep.razorpayPaymentId || "NONE",
-        receiptNumber: keep.receiptNumber || "NONE",
-        willReceivePaymentId: dup.razorpayPaymentId,
+      keeping: {
+        id: real._id, name: real.name, amount: real.amount,
+        paymentId: real.razorpayPaymentId,
+        receiptNumber: real.receiptNumber || "NONE",
+        willInheritSubscriptionId: !real.subscriptionId && placeholder.subscriptionId ? placeholder.subscriptionId : null,
       },
-      duplicateToDelete: {
-        id: dup._id, name: dup.name, amount: dup.amount,
-        paymentId: dup.razorpayPaymentId,
-        receiptNumber: dup.receiptNumber || "NONE",
-        note: "This receipt number should be CANCELLED at DCC",
+      deleting: {
+        id: placeholder._id, name: placeholder.name, amount: placeholder.amount,
+        receiptNumber: placeholder.receiptNumber || "NONE",
+        status: placeholder.status,
+        action: placeholder.receiptNumber ? "CANCEL THIS RECEIPT AT DCC" : "no receipt — nothing to cancel",
       },
     };
 
     if (dryRun === "true") return res.json({ dryRun: true, plan });
 
-    if (keep.razorpayPaymentId) {
-      return res.json({ error: "keep record already has a payment ID — aborting", current: keep.razorpayPaymentId });
+    // Real record inherits the subscription link if it lacks one
+    if (!real.subscriptionId && placeholder.subscriptionId) {
+      real.subscriptionId = placeholder.subscriptionId;
+      real.isRecurring = true;
+      await real.save();
     }
 
-    const movedPaymentId = dup.razorpayPaymentId;
+    await donationModelForBackfill.findByIdAndDelete(placeholderId);
 
-    // Remove duplicate first so the unique index is freed
-    await donationModelForBackfill.findByIdAndDelete(duplicateId);
-
-    keep.razorpayPaymentId = movedPaymentId;
-    keep.status = "paid";
-    await keep.save();
-
-    res.json({ success: true, merged: plan, movedPaymentId });
+    res.json({ success: true, merged: plan });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
