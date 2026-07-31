@@ -127,4 +127,82 @@ publicRouter.get("/diag-fix-orphan", async (req, res) => {
   }
 });
 
+// Find duplicate record pairs: same mobile + same amount + within 10 minutes,
+// where one has a real pay_ ID and the other doesn't (or has a non-pay_ ID).
+// READ ONLY — shows what would be merged, changes nothing.
+publicRouter.get("/diag-find-duplicates", async (req, res) => {
+  try {
+    const all = await donationModelForBackfill
+      .find({ status: { $in: ["paid", "active", "created"] } })
+      .select("name mobile amount razorpayPaymentId subscriptionId receiptNumber receiptGeneratedAt donorNumber createdAt status isRecurring")
+      .sort({ createdAt: 1 })
+      .lean();
+
+    // Group by mobile+amount
+    const groups = {};
+    for (const d of all) {
+      const key = `${d.mobile}__${d.amount}`;
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(d);
+    }
+
+    const duplicatePairs = [];
+
+    for (const key in groups) {
+      const recs = groups[key];
+      if (recs.length < 2) continue;
+
+      for (let i = 0; i < recs.length; i++) {
+        for (let j = i + 1; j < recs.length; j++) {
+          const a = recs[i], b = recs[j];
+          const minsApart = Math.abs(new Date(a.createdAt) - new Date(b.createdAt)) / 60000;
+          if (minsApart > 10) continue;
+
+          const aHasPay = (a.razorpayPaymentId || "").startsWith("pay_");
+          const bHasPay = (b.razorpayPaymentId || "").startsWith("pay_");
+
+          // Interesting case: one has a real pay_ ID, other doesn't
+          if (aHasPay !== bHasPay) {
+            const withPay = aHasPay ? a : b;
+            const withoutPay = aHasPay ? b : a;
+            duplicatePairs.push({
+              mobile: a.mobile,
+              name: (a.name || "").trim(),
+              amount: a.amount,
+              minutesApart: Math.round(minsApart * 10) / 10,
+              keepRecord: {
+                id: withoutPay._id,
+                createdAt: withoutPay.createdAt,
+                paymentId: withoutPay.razorpayPaymentId || "NONE",
+                receiptNumber: withoutPay.receiptNumber || "NONE",
+                hasReceipt: !!withoutPay.receiptGeneratedAt,
+                subscriptionId: withoutPay.subscriptionId || "NONE",
+                status: withoutPay.status,
+              },
+              duplicateRecord: {
+                id: withPay._id,
+                createdAt: withPay.createdAt,
+                paymentId: withPay.razorpayPaymentId,
+                receiptNumber: withPay.receiptNumber || "NONE",
+                hasReceipt: !!withPay.receiptGeneratedAt,
+                subscriptionId: withPay.subscriptionId || "NONE",
+                status: withPay.status,
+              },
+              bothHaveReceipts: !!withoutPay.receiptGeneratedAt && !!withPay.receiptGeneratedAt,
+            });
+          }
+        }
+      }
+    }
+
+    res.json({
+      totalPairs: duplicatePairs.length,
+      pairsWithTwoReceipts: duplicatePairs.filter(p => p.bothHaveReceipts).length,
+      duplicatePairs,
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 module.exports = { publicRouter };
