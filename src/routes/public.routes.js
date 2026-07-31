@@ -47,4 +47,24 @@ publicRouter.get("/diag-payments", async (req, res) => {
   }
 });
 
+const { razorpay } = require("../config/razorpay");
+
+publicRouter.get("/diag-invoices", async (req, res) => {
+  try {
+    const subId = req.query.subId;
+    if (!subId) return res.json({ error: "subId required" });
+    const invoiceResp = await razorpay.invoices.all({ subscription_id: subId, count: 100 });
+    const invoices = (invoiceResp.items || []).map(inv => ({
+      status: inv.status,
+      payment_id: inv.payment_id,
+      amount: inv.amount ? inv.amount / 100 : null,
+      created_at: inv.created_at ? new Date(inv.created_at * 1000).toISOString() : null,
+      paid_at: inv.paid_at ? new Date(inv.paid_at * 1000).toISOString() : null,
+    }));
+    res.json({ count: invoices.length, invoices });
+  } catch (e) {
+    res.status(500).json({ error: e.message, details: e.error || e });
+  }
+});
+
 module.exports = { publicRouter };
