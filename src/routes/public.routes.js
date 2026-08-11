@@ -322,4 +322,39 @@ publicRouter.get("/diag-safe-merge-candidates", async (req, res) => {
   }
 });
 
+publicRouter.get("/diag-created-backlog", async (req, res) => {
+  try {
+    const total = await donationModelForBackfill.countDocuments({ status: "created" });
+
+    const now = new Date();
+    const olderThan1Day = await donationModelForBackfill.countDocuments({
+      status: "created", createdAt: { $lte: new Date(now - 24 * 60 * 60 * 1000) },
+    });
+    const olderThan7Days = await donationModelForBackfill.countDocuments({
+      status: "created", createdAt: { $lte: new Date(now - 7 * 24 * 60 * 60 * 1000) },
+    });
+    const olderThan30Days = await donationModelForBackfill.countDocuments({
+      status: "created", createdAt: { $lte: new Date(now - 30 * 24 * 60 * 60 * 1000) },
+    });
+    const alreadyReminded = await donationModelForBackfill.countDocuments({
+      status: "created", whatsappPendingReminderSent: true,
+    });
+    const last24h = await donationModelForBackfill.countDocuments({
+      status: "created", createdAt: { $gte: new Date(now - 24 * 60 * 60 * 1000) },
+    });
+
+    res.json({
+      totalStuckInCreated: total,
+      newInLast24h: last24h,
+      olderThan1Day,
+      olderThan7Days,
+      olderThan30Days,
+      alreadyRemindedViaWhatsapp: alreadyReminded,
+      notYetReminded: total - alreadyReminded,
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 module.exports = { publicRouter };
