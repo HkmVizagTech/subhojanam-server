@@ -17,6 +17,7 @@
     "mongoose": "^9.2.2",
     "multer": "^2.2.0",
     "node-cron": "^3.0.3",
+    "nodemailer": "^9.0.5",
     "number-to-words": "^1.2.4",
     "pdfkit": "^0.17.2",
     "puppeteer": "^24.38.0",

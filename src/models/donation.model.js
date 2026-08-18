@@ -90,6 +90,10 @@ const donationSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    emailPendingReminderSent: {
+      type: Boolean,
+      default: false,
+    },
     reviewAfter: Date,
     lastPaymentDate: Date,
 
