@@ -10,12 +10,15 @@ function getTransporter() {
   }
 
   transporter = nodemailer.createTransport({
-    host: "smtp.office365.com",
+    host: "smtp-mail.outlook.com", // personal Outlook.com / Hotmail / Live account
     port: 587,
     secure: false, // STARTTLS on port 587
     auth: {
       user: process.env.OUTLOOK_EMAIL,
       pass: process.env.OUTLOOK_APP_PASSWORD,
+    },
+    tls: {
+      ciphers: "SSLv3",
     },
   });
 
