@@ -357,4 +357,37 @@ publicRouter.get("/diag-created-backlog", async (req, res) => {
   }
 });
 
+publicRouter.get("/diag-subscription-health", async (req, res) => {
+  try {
+    const realCharges = await donationModelForBackfill.find({
+      isRecurring: true,
+      razorpayPaymentId: { $exists: true, $nin: [null, ""] },
+    }).select("name mobile amount receiptGeneratedAt externalApiSentAt createdAt razorpayPaymentId").sort({ createdAt: -1 });
+
+    const withReceipt = realCharges.filter(d => d.receiptGeneratedAt);
+    const withoutReceipt = realCharges.filter(d => !d.receiptGeneratedAt);
+    const dccSentButNoReceipt = withoutReceipt.filter(d => d.externalApiSentAt);
+
+    // Last 10 charges — most recent activity, tells us if the CURRENT fix is working
+    const last10 = realCharges.slice(0, 10).map(d => ({
+      name: (d.name || "").trim(),
+      amount: d.amount,
+      paymentId: d.razorpayPaymentId,
+      receiptGenerated: !!d.receiptGeneratedAt,
+      dccSent: !!d.externalApiSentAt,
+      createdAt: d.createdAt,
+    }));
+
+    res.json({
+      totalRealCharges: realCharges.length,
+      withReceipt: withReceipt.length,
+      withoutReceipt: withoutReceipt.length,
+      dccSentButStillNoReceipt: dccSentButNoReceipt.length,
+      last10ChargesChronological: last10,
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 module.exports = { publicRouter };
