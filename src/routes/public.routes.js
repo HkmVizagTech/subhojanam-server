@@ -390,4 +390,47 @@ publicRouter.get("/diag-subscription-health", async (req, res) => {
   }
 });
 
+publicRouter.get("/diag-subscription-health-thismonth", async (req, res) => {
+  try {
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const realCharges = await donationModelForBackfill.find({
+      isRecurring: true,
+      razorpayPaymentId: { $exists: true, $nin: [null, ""] },
+      createdAt: { $gte: monthStart },
+    }).select("name mobile amount receiptGeneratedAt externalApiSentAt createdAt razorpayPaymentId subscriptionId").sort({ createdAt: -1 });
+
+    const withReceipt = realCharges.filter(d => d.receiptGeneratedAt);
+    const withoutReceipt = realCharges.filter(d => !d.receiptGeneratedAt);
+
+    // Also check for unique subscriptions that had NO charge at all this month
+    // (could mean subscription.charged webhook never fired / never created a record)
+    const allSubIds = await donationModelForBackfill.distinct("subscriptionId", {
+      isRecurring: true, subscriptionId: { $exists: true, $nin: [null, ""] },
+    });
+    const subIdsChargedThisMonth = new Set(realCharges.map(d => d.subscriptionId));
+    const notChargedThisMonth = allSubIds.filter(id => !subIdsChargedThisMonth.has(id));
+
+    res.json({
+      monthStart: monthStart.toISOString(),
+      totalChargesThisMonth: realCharges.length,
+      withReceipt: withReceipt.length,
+      withoutReceipt: withoutReceipt.length,
+      withoutReceiptDetails: withoutReceipt.map(d => ({
+        name: (d.name || "").trim(), amount: d.amount, paymentId: d.razorpayPaymentId,
+        dccSent: !!d.externalApiSentAt, createdAt: d.createdAt,
+      })),
+      allChargesThisMonth: realCharges.map(d => ({
+        name: (d.name || "").trim(), amount: d.amount, paymentId: d.razorpayPaymentId,
+        receiptGenerated: !!d.receiptGeneratedAt, createdAt: d.createdAt,
+      })),
+      totalActiveSubscriptions: allSubIds.length,
+      subscriptionsNotChargedThisMonthYet: notChargedThisMonth.length,
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 module.exports = { publicRouter };
