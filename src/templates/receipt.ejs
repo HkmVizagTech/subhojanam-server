@@ -111,6 +111,23 @@
         display: flex;
         gap: 30px;
       }
+      /* The sevak name is donor-supplied and can be long. Without this the
+         flex row shrinks the reference number instead, and the donor number
+         gets clipped off the page. Keep the reference intact and let the
+         name wrap inside its own column. */
+      .sevak-row {
+        align-items: flex-start;
+      }
+      .sevak-row .no-shrink {
+        flex: 0 0 auto;
+        white-space: nowrap;
+      }
+      .sevak-row .sevak-name {
+        flex: 1 1 auto;
+        min-width: 0;
+        overflow-wrap: break-word;
+        word-break: break-word;
+      }
       .ml-auto {
         margin-left: auto;
       }
@@ -233,12 +250,14 @@
           <p>Name of the Donor : <%= donorName %></p>
           <p>Address : <%= address %></p>
 
-          <div class="flex-gap">
-            <p>
+          <div class="flex-gap sevak-row">
+            <p class="no-shrink">
               Reference(Patronship No) :
               <span class="bold"><%= donorNumber || patronId || 'N/A' %></span>
             </p>
-            <p style="margin-left: 150px">Sevak Name : <%= sevakName %></p>
+            <p class="sevak-name" style="margin-left: 150px">
+              Sevak Name : <%= sevakName %>
+            </p>
           </div>
 
           <div class="flex-gap">
