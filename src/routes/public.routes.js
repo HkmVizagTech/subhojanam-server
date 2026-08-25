@@ -433,4 +433,41 @@ publicRouter.get("/diag-subscription-health-thismonth", async (req, res) => {
   }
 });
 
+publicRouter.get("/diag-check-razorpay-this-month", async (req, res) => {
+  try {
+    const { razorpay } = require("../config/razorpay");
+    const subIds = await donationModelForBackfill.distinct("subscriptionId", {
+      isRecurring: true, subscriptionId: { $exists: true, $nin: [null, ""] },
+    });
+
+    const monthStartUnix = Math.floor(new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime() / 1000);
+    const results = [];
+
+    // Sample check — first 5 subscriptions only, to avoid rate limits
+    for (const subId of subIds.slice(0, 5)) {
+      try {
+        const invoiceResp = await razorpay.invoices.all({ subscription_id: subId, count: 10 });
+        const thisMonthInvoices = (invoiceResp.items || []).filter(inv => inv.created_at >= monthStartUnix);
+        results.push({
+          subscriptionId: subId,
+          totalInvoicesEver: invoiceResp.items?.length || 0,
+          invoicesThisMonth: thisMonthInvoices.length,
+          thisMonthDetails: thisMonthInvoices.map(inv => ({
+            status: inv.status, payment_id: inv.payment_id,
+            created_at: new Date(inv.created_at * 1000).toISOString(),
+          })),
+          allInvoiceDates: (invoiceResp.items || []).map(inv => new Date(inv.created_at * 1000).toISOString().slice(0, 10)),
+        });
+      } catch (e) {
+        results.push({ subscriptionId: subId, error: e.message });
+      }
+      await new Promise(r => setTimeout(r, 300));
+    }
+
+    res.json({ sampledCount: results.length, results });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 module.exports = { publicRouter };
