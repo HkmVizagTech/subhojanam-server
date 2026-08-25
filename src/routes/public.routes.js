@@ -470,4 +470,60 @@ publicRouter.get("/diag-check-razorpay-this-month", async (req, res) => {
   }
 });
 
+publicRouter.get("/diag-sync-one-payment", async (req, res) => {
+  try {
+    const { subscriptionId, paymentId } = req.query;
+    if (!subscriptionId || !paymentId) return res.json({ error: "subscriptionId and paymentId required" });
+
+    const existing = await donationModelForBackfill.findOne({ razorpayPaymentId: paymentId });
+    if (existing) return res.json({ error: "Already exists", id: existing._id });
+
+    const { razorpay } = require("../config/razorpay");
+    const externalDonationService = require("../services/externalDonation.service");
+    const receiptService = require("../services/receipt.service");
+    const whatsappService = require("../services/whatsapp.service");
+
+    const original = await donationModelForBackfill.findOne({ subscriptionId, isRecurring: true }).sort({ createdAt: 1 });
+    if (!original) return res.json({ error: "No original signup record found for this subscription" });
+
+    const payment = await razorpay.payments.fetch(paymentId);
+
+    const newDonation = await donationModelForBackfill.create({
+      name: original.name, email: original.email, mobile: original.mobile,
+      amount: payment.amount ? payment.amount / 100 : original.amount,
+      certificate: original.certificate, panNumber: original.panNumber,
+      address: original.address, city: original.city, state: original.state, pincode: original.pincode,
+      occasion: original.occasion, sevakName: original.sevakName || "",
+      sevakMobile: original.sevakMobile || "", sevaDate: original.sevaDate || "", dob: original.dob || "",
+      mahaprasadam: original.mahaprasadam, prasadamAddressOption: original.prasadamAddressOption,
+      prasadamAddress: original.prasadamAddress, prasadamName: original.prasadamName || "",
+      prasadamMobile: original.prasadamMobile || "", prasadamCity: original.prasadamCity || "",
+      prasadamState: original.prasadamState || "", prasadamPincode: original.prasadamPincode || "",
+      utm: original.utm, subscriptionId, isRecurring: true, razorpayPaymentId: paymentId,
+      status: "paid", webhookProcessed: true, webhookProcessedAt: new Date(),
+      createdAt: payment.created_at ? new Date(payment.created_at * 1000) : new Date(),
+    });
+
+    let apiResponse = null;
+    try {
+      apiResponse = await externalDonationService.sendToExternalApi(newDonation, payment);
+      await donationModelForBackfill.findByIdAndUpdate(newDonation._id, {
+        externalApiResponse: apiResponse, externalApiSentAt: new Date(), donorNumber: apiResponse?.DonorNumber || "",
+      });
+    } catch (dccErr) {
+      return res.json({ success: true, donationId: newDonation._id, dccError: dccErr.message });
+    }
+
+    const filePath = await receiptService.generateReceipt(newDonation, apiResponse);
+
+    let phone = newDonation.mobile.replace(/\D/g, "");
+    if (!phone.startsWith("91")) phone = `91${phone}`;
+    await whatsappService.sendReceiptWhatsapp(phone, filePath, newDonation.name, newDonation.amount, "subscription");
+
+    res.json({ success: true, donationId: newDonation._id, receiptNumber: apiResponse?.ReceiptNumber, name: newDonation.name, amount: newDonation.amount });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 module.exports = { publicRouter };
