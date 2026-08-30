@@ -875,6 +875,73 @@ const subscriptionRepairController = {
     }
   },
 
+  // FULL ORPHAN AUDIT — every other reconciliation tool in this file starts
+  // from OUR OWN database's subscriptionId list, so none of them can catch
+  // a subscription Razorpay knows about that we have ZERO local record for
+  // at all (e.g. if the initial donation record write failed right after
+  // the Razorpay subscription itself was created). This fetches Razorpay's
+  // complete subscription list directly and cross-checks against our DB.
+  fullOrphanAudit: async (req, res) => {
+    try {
+      const razorpaySubscriptions = await razorpay.subscriptions.all({ count: 100 });
+      const results = [];
+
+      for (const sub of razorpaySubscriptions.items || []) {
+        const ourRecords = await donationModle
+          .find({ subscriptionId: sub.id })
+          .select("razorpayPaymentId status createdAt")
+          .lean();
+
+        let paidCount = 0;
+        try {
+          const detail = await razorpay.subscriptions.fetch(sub.id);
+          paidCount = detail.paid_count || 0;
+        } catch { continue; }
+
+        const gap = paidCount > ourRecords.length;
+        if (!gap) continue;
+
+        const entry = {
+          subscriptionId: sub.id,
+          razorpayStatus: sub.status,
+          planId: sub.plan_id,
+          razorpayPaidCount: paidCount,
+          createdAt: sub.created_at ? new Date(sub.created_at * 1000) : null,
+          ourDonationRecords: ourRecords.length,
+        };
+
+        try {
+          const invoiceResp = await razorpay.invoices.all({ subscription_id: sub.id, count: 20 });
+          const paidInvoices = (invoiceResp.items || []).filter((inv) => inv.status === "paid");
+          entry.missingCharges = paidInvoices
+            .filter((inv) => !ourRecords.some((r) => r.razorpayPaymentId === inv.payment_id))
+            .map((inv) => ({
+              paymentId: inv.payment_id,
+              amount: inv.amount ? inv.amount / 100 : null,
+              date: inv.date ? new Date(inv.date * 1000) : null,
+              donorName: inv.customer_details?.name || null,
+              donorEmail: inv.customer_details?.email || null,
+              donorMobile: inv.customer_details?.contact || null,
+            }));
+        } catch (e) {
+          entry.invoiceFetchError = e.message;
+        }
+
+        results.push(entry);
+      }
+
+      res.json({
+        success: true,
+        totalRazorpaySubscriptionsChecked: (razorpaySubscriptions.items || []).length,
+        subscriptionsWithGaps: results.length,
+        results,
+      });
+    } catch (error) {
+      console.error("fullOrphanAudit error:", error);
+      res.status(500).json({ success: false, message: error.message });
+    }
+  },
+
 };
 
 module.exports = { subscriptionRepairController };

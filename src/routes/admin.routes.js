@@ -46,6 +46,7 @@ adminRouter.post("/subscription-repair/fix", subscriptionRepairController.fixSub
 adminRouter.post("/subscription-repair/sync-charge", subscriptionRepairController.syncMissingCharge);
 adminRouter.post("/subscription-repair/bulk-sync-charges", subscriptionRepairController.bulkSyncMissingCharges);
 adminRouter.get("/subscription-repair/reconcile-all", subscriptionRepairController.reconcileAllSubscriptions);
+adminRouter.get("/subscription-repair/full-orphan-audit", subscriptionRepairController.fullOrphanAudit);
 adminRouter.post("/subscription-repair/regenerate-receipt", subscriptionRepairController.regenerateReceiptForExisting);
 adminRouter.get("/subscription-repair/verify", subscriptionRepairController.verifyPayment);
 adminRouter.post("/subscription-repair/fix-payment-donor", subscriptionRepairController.fixPaymentDonor);
