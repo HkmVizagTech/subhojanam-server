@@ -17,9 +17,8 @@ const getBrowser = async () => {
       sharedBrowser = null;
     }
   }
-  sharedBrowser = await puppeteer.launch({
+  const launchOptions = {
     headless: true,
-    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || "/usr/bin/chromium",
     args: [
       "--no-sandbox",
       "--disable-setuid-sandbox",
@@ -28,9 +27,15 @@ const getBrowser = async () => {
       "--disable-software-rasterizer",
       "--disable-extensions",
       "--disable-crash-reporter",
-      "--crash-dumps-dir=/tmp",
     ],
-  });
+  };
+  // Only override the executable path when explicitly set (e.g. the Docker container in
+  // production, which installs system chromium at /usr/bin/chromium). Otherwise, let Puppeteer
+  // use its own bundled browser — needed for local dev on Windows/Mac, which don't have that path.
+  if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+    launchOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+  }
+  sharedBrowser = await puppeteer.launch(launchOptions);
   return sharedBrowser;
 };
 

@@ -8,6 +8,20 @@ const EXTERNAL_API_KEY =
   process.env.EXTERNAL_DONATION_API_KEY || "DCCVSKPSM261089F7A3XQ8L2B";
 
 const sendToExternalApi = async (donation, payment = {}) => {
+  if (process.env.NODE_ENV === "development") {
+    console.log(
+      "⚠️  [DEV MODE] Skipping real external donation API call (this hits production otherwise) — returning a mock response instead",
+    );
+    return {
+      DonationId: 0,
+      ReceiptNumber: `LOCAL-DEV|${new Date().getFullYear()}|TEST|${Date.now()}`,
+      DonorId: 0,
+      DonorNumber: "LOCAL-DEV-DONOR",
+      IsNewDonor: true,
+      Message: "Mocked response — NODE_ENV=development, real external API was not called",
+    };
+  }
+
   try {
     const normalizePhone = (raw) => {
       if (!raw) return null;

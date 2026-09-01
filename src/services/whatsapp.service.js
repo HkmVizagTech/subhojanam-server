@@ -218,76 +218,137 @@ const sendAnniversaryWishWhatsapp = async (phone, donorName) => {
   return response.data;
 };
 
-// Birthday wish sent directly to the honoree (sevak) — {{1}} = sevakName
-const sendBirthdayWishToSevak = async (phone, sevakName) => {
+// Celebratory "special day" wish sent directly to the honoree (sevak) — for happy occasions
+// (Birthday, Anniversary, or any custom "Other" text). NOT used for Memorial — see the
+// memorial-specific pair below, which uses solemn wording instead.
+// {{1}} = sevakName, {{2}} = occasion
+const sendCelebrationWishToSevak = async (phone, sevakName, occasion) => {
   const response = await axios.post(
     "https://wapi.flaxxa.com/api/v1/sendtemplatemessage",
     {
       token: process.env.FLAXXA_TOKEN,
       phone,
-      template_name: "birthday_wish_to_sevak",
+      template_name: "celebration_wish_to_sevak_v",
       template_language: "en",
-      components: [{ type: "body", parameters: [{ type: "text", text: String(sevakName) }] }],
+      components: [
+        {
+          type: "header",
+          parameters: [
+            {
+              type: "image",
+              image: { link: "https://res.cloudinary.com/ddmzeqpkc/image/upload/f_auto,q_auto/celebration_jdgpi3" },
+            },
+          ],
+        },
+        {
+          type: "body",
+          parameters: [
+            { type: "text", text: String(sevakName) },
+            { type: "text", text: String(occasion) },
+          ],
+        },
+      ],
     },
     { headers: { "Content-Type": "application/json" } }
   );
   return response.data;
 };
 
-// Birthday wish sent to donor mentioning sevak name — {{1}} = donorName, {{2}} = sevakName
-const sendBirthdayWishToDonor = async (phone, donorName, sevakName) => {
+// Celebratory wish sent to the donor, mentioning the honoree's name — used when no honoree
+// mobile was given. {{1}} = donorName, {{2}} = sevakName, {{3}} = occasion
+const sendCelebrationWishToDonor = async (phone, donorName, sevakName, occasion) => {
   const response = await axios.post(
     "https://wapi.flaxxa.com/api/v1/sendtemplatemessage",
     {
       token: process.env.FLAXXA_TOKEN,
       phone,
-      template_name: "birthday_wish_to_donor",
+      template_name: "celebration_wish_to_donor_v2",
       template_language: "en",
-      components: [{
-        type: "body",
-        parameters: [
-          { type: "text", text: String(donorName) },
-          { type: "text", text: String(sevakName) },
-        ],
-      }],
+      components: [
+        {
+          type: "header",
+          parameters: [
+            {
+              type: "image",
+              image: { link: "https://res.cloudinary.com/ddmzeqpkc/image/upload/f_auto,q_auto/celebration_jdgpi3" },
+            },
+          ],
+        },
+        {
+          type: "body",
+          parameters: [
+            { type: "text", text: String(donorName) },
+            { type: "text", text: String(sevakName) },
+            { type: "text", text: String(occasion) },
+          ],
+        },
+      ],
     },
     { headers: { "Content-Type": "application/json" } }
   );
   return response.data;
 };
 
-// Anniversary wish sent directly to the honoree (sevak) — {{1}} = sevakName
-const sendAnniversaryWishToSevak = async (phone, sevakName) => {
+// Solemn wish sent to a family member (the "sevak" fields, for Memorial, represent someone
+// notifying on behalf of the deceased — not the deceased's own number) — no "occasion" variable
+// needed since the wording is always framed around remembrance. {{1}} = the person being remembered
+const sendMemorialWishToSevak = async (phone, sevakName) => {
   const response = await axios.post(
     "https://wapi.flaxxa.com/api/v1/sendtemplatemessage",
     {
       token: process.env.FLAXXA_TOKEN,
       phone,
-      template_name: "anniversary_wish_to_sevak",
+      template_name: "memorial_wish_to_sevak_v2",
       template_language: "en",
-      components: [{ type: "body", parameters: [{ type: "text", text: String(sevakName) }] }],
+      components: [
+        {
+          type: "header",
+          parameters: [
+            {
+              type: "image",
+              image: { link: "https://res.cloudinary.com/ddmzeqpkc/image/upload/f_auto,q_auto/memorial_p6bu9c" },
+            },
+          ],
+        },
+        {
+          type: "body",
+          parameters: [{ type: "text", text: String(sevakName) }],
+        },
+      ],
     },
     { headers: { "Content-Type": "application/json" } }
   );
   return response.data;
 };
 
-// Anniversary wish sent to donor mentioning sevak name — {{1}} = donorName, {{2}} = sevakName
-const sendAnniversaryWishToDonor = async (phone, donorName, sevakName) => {
+// Solemn wish sent to the donor, mentioning who is being remembered — used when no family
+// contact mobile was given. {{1}} = donorName, {{2}} = the person being remembered
+const sendMemorialWishToDonor = async (phone, donorName, sevakName) => {
   const response = await axios.post(
     "https://wapi.flaxxa.com/api/v1/sendtemplatemessage",
     {
       token: process.env.FLAXXA_TOKEN,
       phone,
-      template_name: "anniversary_wish_to_donor",
+      template_name: "memorial_wish_to_donor_v2",
       template_language: "en",
-      components: [{
-        type: "body",
-        parameters: [
-          { type: "text", text: String(donorName) },
-          { type: "text", text: String(sevakName) },
-        ],
-      }],
+      components: [
+        {
+          type: "header",
+          parameters: [
+            {
+              type: "image",
+              image: { link: "https://res.cloudinary.com/ddmzeqpkc/image/upload/f_auto,q_auto/memorial_p6bu9c" },
+            },
+          ],
+        },
+        {
+          type: "body",
+          parameters: [
+            { type: "text", text: String(donorName) },
+            { type: "text", text: String(sevakName) },
+          ],
+        },
+      ],
     },
     { headers: { "Content-Type": "application/json" } }
   );
@@ -300,8 +361,8 @@ module.exports = {
   sendPrasadamDispatchWhatsapp,
   sendBirthdayWishWhatsapp,
   sendAnniversaryWishWhatsapp,
-  sendBirthdayWishToSevak,
-  sendBirthdayWishToDonor,
-  sendAnniversaryWishToSevak,
-  sendAnniversaryWishToDonor,
+  sendCelebrationWishToSevak,
+  sendCelebrationWishToDonor,
+  sendMemorialWishToSevak,
+  sendMemorialWishToDonor,
 };

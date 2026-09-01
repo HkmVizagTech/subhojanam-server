@@ -15,7 +15,7 @@ async function createTestReceiptPDF() {
     const testDonation = {
       name: "Test Donor",
       email: "test@example.com",
-      mobile: "916301393962",
+      mobile: "91XXXXXXXXXX",
       amount: 500,
       address: "123 Test Street",
       city: "Test City",
@@ -74,6 +74,7 @@ async function createTestReceiptPDF() {
       donorName: testDonation.name,
       address: address,
       patronId: "",
+      donorNumber: "",
       sevakName: "",
       mobile: testDonation.mobile,
       certificate: testDonation.certificate === true ? "YES" : "NO",
@@ -83,6 +84,8 @@ async function createTestReceiptPDF() {
       amountWords: amountWords,
       paymentRef: testDonation.razorpayPaymentId,
       paymentDate: receiptDate,
+      enrolledBy: "",
+      cdc: "",
       logoBase64,
       stampBase64,
       externalApiResponse: null,
@@ -130,7 +133,7 @@ async function testWhatsApp() {
   console.log("\nEnvironment check:");
   console.log("- FLAXXA_TOKEN exists:", !!process.env.FLAXXA_TOKEN);
   console.log("- FLAXXA_TOKEN length:", process.env.FLAXXA_TOKEN?.length || 0);
-  console.log("- Phone number to test: 916301393962");
+  console.log("- Phone number to test: 91XXXXXXXXXX");
   console.log("");
 
   try {
@@ -139,7 +142,7 @@ async function testWhatsApp() {
 
     console.log("\n📤 Sending WhatsApp message...");
     const result = await sendReceiptWhatsapp(
-      "916301393962", // Your phone number
+      "91XXXXXXXXXX", // Your phone number
       testPdfPath,
       "Test Donor",
       500,
