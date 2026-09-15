@@ -304,4 +304,27 @@ module.exports = {
   sendBirthdayWishToDonor,
   sendAnniversaryWishToSevak,
   sendAnniversaryWishToDonor,
+  sendUtilityMessage,
 };
+
+// Common utility template — same pattern as the main hkmsite2.0-server.
+// One approved Meta template (hkm_utility_notification, Utility category,
+// body: {{1}}) reused for any one-off transactional message across all
+// platforms. Template name configurable via env so it can be renamed if
+// Meta requires it; set WAPI_UTILITY_TEMPLATE_NAME once after approval.
+const UTILITY_TEMPLATE_NAME = process.env.WAPI_UTILITY_TEMPLATE_NAME || "hkm_utility_notification";
+
+async function sendUtilityMessage(phone, messageText) {
+  const response = await axios.post(
+    "https://wapi.flaxxa.com/api/v1/sendtemplatemessage",
+    {
+      token: process.env.FLAXXA_TOKEN,
+      phone: String(phone).replace(/\D/g, ""),
+      template_name: UTILITY_TEMPLATE_NAME,
+      template_language: "en",
+      components: [{ type: "body", parameters: [{ type: "text", text: String(messageText) }] }],
+    },
+    { headers: { "Content-Type": "application/json" } }
+  );
+  return response.data;
+}
