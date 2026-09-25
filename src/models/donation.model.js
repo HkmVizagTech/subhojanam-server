@@ -42,6 +42,12 @@ const donationSchema = new mongoose.Schema(
     receiptNumber: { type: String },
     donorNumber: { type: String, default: "" },
     receiptGeneratedAt: { type: Date },
+    // When a receipt was last MANUALLY re-sent (from DRM). Separate from
+    // receiptGeneratedAt so a resend never disturbs the record of when the
+    // receipt was originally issued, and so the resend endpoint has something
+    // atomic to lock on - without it, two clicks send the donor two WhatsApp
+    // messages.
+    receiptResendAt: { type: Date },
     externalApiResponse: { type: Object },
     externalApiSentAt: { type: Date },
     fbp: { type: String },

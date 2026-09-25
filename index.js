@@ -205,6 +205,18 @@ app.use("/api/payment", paymentRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/admin", adminRouter);
 app.use("/api/public", require("./src/routes/public.routes").publicRouter);
+// DRM (donor relationship manager) internal service API.
+//
+// Mounted on its OWN sub-path, not on "/api/internal" directly. The router
+// applies shared-secret auth to everything beneath its mount point, so
+// mounting it at "/api/internal" made it intercept this site's existing
+// /api/internal/send-pending-reminders endpoint and reject it with 401 (or
+// 503 when DRM_SYNC_SECRET is unset) before that handler was ever reached.
+//
+// Reordering the mounts would also have fixed it, but only until someone adds
+// another /api/internal route below this line. A distinct prefix makes the
+// collision impossible rather than merely currently-avoided.
+app.use("/api/internal/drm", require("./src/routes/internal.routes").internalRouter);
 app.use("/public", express.static("public"));
 
 // Internal endpoint for pending reminders

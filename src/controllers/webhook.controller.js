@@ -6,6 +6,7 @@ const whatsappService = require("../services/whatsapp.service");
 // const { maybeSendSameDayWish } = require("./wish.controller");
 const externalDonationService = require("../services/externalDonation.service");
 const metaConversionService = require("../services/metaConversion.service");
+const { pushToDrm } = require("../services/drmNotify.service");
 
 const webHookControler = {
   webhook: async (req, res) => {
@@ -144,6 +145,13 @@ const webHookControler = {
             //   console.error("[Same-day wish] payment.captured error:", err.message)
             // );
 
+
+            // Tell DRM about this gift so the admin dashboard shows it at once
+            // instead of waiting for a manual import. Deliberately LAST and
+            // un-awaited: by here the DCC receipt number exists, so DRM gets
+            // the receipt too. pushToDrm never throws and never blocks - a
+            // donation must not be affected by DRM being slow or down.
+            pushToDrm(donation._id, { reason: "payment_captured" });
             return res.status(200).send("Webhook processed");
           } catch (error) {
             console.error("❌ Webhook error:", error.message);
@@ -163,10 +171,14 @@ const webHookControler = {
 
         case "subscription.activated": {
           const subscription = event.payload.subscription.entity;
-          await donationModle.findOneAndUpdate(
+          const updated = await donationModle.findOneAndUpdate(
             { subscriptionId: subscription.id },
             { status: "active" },
+            { new: true },
           );
+          // DRM mirrors subscription state, so a status change matters there
+          // as much as a charge does.
+          if (updated) pushToDrm(updated._id, { reason: "subscription_activated" });
           break;
         }
 
@@ -326,6 +338,10 @@ const webHookControler = {
               $set: { lastPaymentDate: new Date() },
             });
 
+            // Same push for recurring charges - each monthly charge is a new
+            // transaction DRM should reflect immediately.
+            pushToDrm(newDonation._id, { reason: "subscription_charged" });
+
           } catch (subErr) {
             console.error("❌ subscription.charged error:", subErr.message);
             console.error("❌ subscription.charged stack:", subErr.stack);
@@ -337,19 +353,27 @@ const webHookControler = {
 
         case "subscription.cancelled": {
           const subscription = event.payload.subscription.entity;
-          await donationModle.findOneAndUpdate(
+          const updated = await donationModle.findOneAndUpdate(
             { subscriptionId: subscription.id },
             { status: "cancelled" },
+            { new: true },
           );
+          // DRM mirrors subscription state, so a status change matters there
+          // as much as a charge does.
+          if (updated) pushToDrm(updated._id, { reason: "subscription_cancelled" });
           break;
         }
 
         case "subscription.completed": {
           const subscription = event.payload.subscription.entity;
-          await donationModle.findOneAndUpdate(
+          const updated = await donationModle.findOneAndUpdate(
             { subscriptionId: subscription.id },
             { status: "completed" },
+            { new: true },
           );
+          // DRM mirrors subscription state, so a status change matters there
+          // as much as a charge does.
+          if (updated) pushToDrm(updated._id, { reason: "subscription_completed" });
           break;
         }
 
