@@ -38,6 +38,11 @@ internalRouter.get("/transactions", internalController.listTransactions);
 
 // Single-donor lookup, for DRM's per-donor Sync button and the webhook path.
 internalRouter.get("/donors/by-mobile/:mobile", internalController.getDonorByMobile);
+// Offline donation entered in DRM. Delegates to this site's own offline
+// donation path, so DCC issues the receipt exactly as it does for the admin
+// form here. Declared before "/donations/:id/..." so it is never read as an id.
+internalRouter.post("/donations/offline", internalController.createOfflineDonation);
+
 internalRouter.get("/donations/:id/receipt.pdf", internalController.getReceiptPdf);
 internalRouter.post("/donations/:id/resend-receipt", internalController.resendReceipt);
 

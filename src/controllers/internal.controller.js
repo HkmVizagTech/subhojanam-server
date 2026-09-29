@@ -334,6 +334,42 @@ const internalController = {
     }
   },
 
+
+  // POST /api/internal/drm/donations/offline
+  //
+  // An offline donation (cash, cheque, UPI, bank transfer) entered in DRM
+  // rather than on this site's own admin screen.
+  //
+  // Hands straight to offlineDonationController.createOfflineDonation - the
+  // same path this site's admin form uses - so DCC is called, the receipt is
+  // generated and WhatsApp goes out exactly as they already do. DRM never mints
+  // a receipt number; this site stays the only place that does.
+  //
+  // Worth knowing about the path this delegates to: if the DCC call fails it
+  // DELETES the donation it just created and returns 500, deliberately, so
+  // there is never a stored gift without a receipt behind it. DRM therefore
+  // treats a failure here as "nothing happened" and shows the error, rather
+  // than recording a half-entry to chase later.
+  createOfflineDonation: async (req, res) => {
+    const { offlineDonationController } = require("./offline.donation.controller");
+
+    const enteredBy = req.body?.enteredByName
+      ? `Entered in DRM by ${String(req.body.enteredByName).slice(0, 80)}`
+      : "Entered in DRM";
+
+    const fakeReq = {
+      body: {
+        ...req.body,
+        occasion: req.body?.occasion || undefined,
+        // Keep the provenance visible on this site's own records too.
+        sevakName: req.body?.sevakName || undefined,
+        manualEntryNote: enteredBy,
+      },
+    };
+
+    return offlineDonationController.createOfflineDonation(fakeReq, res);
+  },
+
   // GET /api/internal/donations/:id/receipt.pdf
   getReceiptPdf: async (req, res) => {
     try {
