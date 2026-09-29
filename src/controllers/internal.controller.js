@@ -370,6 +370,181 @@ const internalController = {
     return offlineDonationController.createOfflineDonation(fakeReq, res);
   },
 
+  // PUT /api/internal/drm/donations/:id/prasadam-status
+  //
+  // Temple staff now work the prasadam dispatch list in DRM, so what they mark
+  // there has to land here too - otherwise this site's Prasadam tab keeps
+  // listing delivered boxes as pending and someone re-couriers them.
+  //
+  // NOT delegated to prasadamController.markDelivered, deliberately, for two
+  // reasons. First, that handler SENDS THE DONOR A WHATSAPP on every call, and
+  // DRM's first use of this will be catching up a backlog of already-delivered
+  // boxes - that would be thousands of "your prasadam is on its way" messages
+  // for parcels that arrived weeks ago. Second, it only knows how to say
+  // "delivered", and DRM also needs to record a tracking number while a box is
+  // still in transit. So this writes the same fields directly, and notifying is
+  // opt-in rather than automatic.
+  //
+  // WHAT THIS SITE CAN AND CANNOT RECORD: prasadamDeliveryStatus is only
+  // pending | delivered. DRM's "shipped" has no equivalent here, so a shipped
+  // box stays pending with its tracking number filled in - the honest
+  // representation, rather than a silent upgrade to delivered. "cancelled" has
+  // no equivalent either; instead of inventing one, this reports back that it
+  // was not applied, and DRM records that the two sides differ on that row.
+  updatePrasadamStatus: async (req, res) => {
+    try {
+      const incoming = String(req.body?.status || "").toLowerCase();
+      if (!["pending", "shipped", "delivered", "cancelled"].includes(incoming)) {
+        return res.status(400).json({
+          success: false,
+          message: "status must be one of: pending, shipped, delivered, cancelled",
+        });
+      }
+
+      const donation = await donationModle.findById(req.params.id);
+      if (!donation) return res.status(404).json({ success: false, message: "Donation not found" });
+      if (!donation.mahaprasadam) {
+        return res.status(400).json({
+          success: false,
+          message: "This donation has no mahaprasadam request to track.",
+        });
+      }
+
+      if (req.body?.trackingNumber !== undefined) {
+        donation.prasadamTrackingNumber = String(req.body.trackingNumber || "").trim();
+      }
+
+      let applied = true;
+      let note = null;
+
+      if (incoming === "delivered") {
+        donation.prasadamDeliveryStatus = "delivered";
+        // Prefer the time DRM recorded the delivery over the time this request
+        // happened to arrive: a backlog upload is marking last week's work.
+        const when = req.body?.deliveredAt ? new Date(req.body.deliveredAt) : new Date();
+        donation.prasadamDeliveredAt = Number.isNaN(when.getTime()) ? new Date() : when;
+      } else if (incoming === "pending" || incoming === "shipped") {
+        donation.prasadamDeliveryStatus = "pending";
+        donation.prasadamDeliveredAt = undefined;
+        if (incoming === "shipped") {
+          note = "This site has no 'shipped' state; recorded as pending with the tracking number.";
+        }
+      } else {
+        applied = false;
+        note = "This site cannot record a cancelled prasadam request; left unchanged.";
+      }
+
+      // Opt-in, and off by default. See the note above about the backlog.
+      let notified = false;
+      if (applied && incoming === "delivered" && req.body?.notify === true) {
+        try {
+          // Required here rather than at the top of the file: this controller is
+          // loaded on every request path, and the WhatsApp service pulls in
+          // provider config that only this one branch needs.
+          const { sendPrasadamDispatchWhatsapp } = require("../services/whatsapp.service");
+          const useDonorAddress = donation.certificate && donation.prasadamAddressOption !== "different";
+          const recipientMobile = useDonorAddress ? donation.mobile : donation.prasadamMobile || donation.mobile;
+          const recipientName = useDonorAddress ? donation.name : donation.prasadamName || donation.name;
+          let phone = String(recipientMobile || "").replace(/\D/g, "");
+          if (phone && !phone.startsWith("91")) phone = `91${phone}`;
+          if (phone) {
+            await sendPrasadamDispatchWhatsapp(phone, recipientName, donation.prasadamTrackingNumber || "");
+            donation.prasadamWhatsappSentAt = new Date();
+            notified = true;
+          }
+        } catch (waErr) {
+          // A failed message must not fail the status write: the delivery
+          // really did happen, and having DRM retry would re-save the same row.
+          console.error(`DRM prasadam WhatsApp failed for ${req.params.id}:`, waErr.message);
+        }
+      }
+
+      await donation.save();
+
+      return res.status(200).json({
+        success: true,
+        applied,
+        notified,
+        status: donation.prasadamDeliveryStatus,
+        message: note || `Prasadam request marked ${donation.prasadamDeliveryStatus}`,
+      });
+    } catch (err) {
+      console.error("internal.updatePrasadamStatus error:", err);
+      return res.status(500).json({ success: false, message: err.message || "Failed to update prasadam status" });
+    }
+  },
+
+  // GET /api/internal/drm/abandoned?since=&page=&limit=
+  //
+  // People who started a donation here and never finished it. The temple calls
+  // them: most abandoned payments are a failed UPI app or a distracted donor,
+  // not a change of heart, and a call recovers a good share of them.
+  //
+  // "created" is this site's word for payment initiated but never completed -
+  // the same state runPendingReminders() in pendingReminder.controller.js sends
+  // its WhatsApp nudge about. This is the follow-up for the ones the nudge did
+  // not bring back.
+  //
+  // WHY minMinutes EXISTS: a donation sits in "created" for the whole time the
+  // donor is on the payment page. Handing DRM a record that is ninety seconds
+  // old would mean calling someone who is still typing their UPI PIN. Default
+  // is an hour, well past the 6-minute reminder.
+  //
+  // This does NOT decide whether the person later gave successfully - DRM holds
+  // every completed donation from both sites and is the only place that can
+  // answer that across sites, so the filtering happens there.
+  getAbandonedDonations: async (req, res) => {
+    try {
+      const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+      const limit = Math.min(500, Math.max(1, parseInt(req.query.limit, 10) || 200));
+      const minMinutes = Math.max(15, parseInt(req.query.minMinutes, 10) || 60);
+
+      const filter = {
+        status: { $in: ["created", "halted"] },
+        createdAt: { $lte: new Date(Date.now() - minMinutes * 60 * 1000) },
+        mobile: { $exists: true, $ne: "" },
+      };
+      if (req.query.since) {
+        const since = new Date(req.query.since);
+        if (!Number.isNaN(since.getTime())) filter.createdAt.$gte = since;
+      }
+
+      const [rows, total] = await Promise.all([
+        donationModle
+          .find(filter)
+          .select("name mobile email amount occasion sourcePage status createdAt")
+          .sort({ createdAt: -1 })
+          .skip((page - 1) * limit)
+          .limit(limit)
+          .lean(),
+        donationModle.countDocuments(filter),
+      ]);
+
+      res.status(200).json({
+        success: true,
+        page,
+        limit,
+        total,
+        hasMore: page * limit < total,
+        donations: rows.map((d) => ({
+          externalId: String(d._id),
+          name: d.name || null,
+          mobile: d.mobile || null,
+          email: d.email || null,
+          amount: d.amount ?? null,
+          purpose: d.occasion || null,
+          sourcePage: d.sourcePage || null,
+          status: d.status,
+          attemptedAt: d.createdAt,
+          sourceSite: "annadan",
+        })),
+      });
+    } catch (err) {
+      console.error("internal.getAbandonedDonations error:", err);
+      res.status(500).json({ success: false, message: err.message || "Failed to list abandoned donations" });
+    }
+  },
+
   // GET /api/internal/donations/:id/receipt.pdf
   getReceiptPdf: async (req, res) => {
     try {
