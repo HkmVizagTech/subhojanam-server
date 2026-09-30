@@ -38,6 +38,11 @@ internalRouter.get("/transactions", internalController.listTransactions);
 
 // Single-donor lookup, for DRM's per-donor Sync button and the webhook path.
 internalRouter.get("/donors/by-mobile/:mobile", internalController.getDonorByMobile);
+// A profile correction made in DRM. This site has no donor record, so the
+// address goes onto the most recent donation - the row a receipt reprint and a
+// pending delivery actually read - while the name is corrected across all of
+// them. Older donations keep the address their receipts were issued with.
+internalRouter.put("/donors/by-mobile/:mobile/profile", internalController.updateDonorProfile);
 // Offline donation entered in DRM. Delegates to this site's own offline
 // donation path, so DCC issues the receipt exactly as it does for the admin
 // form here. Declared before "/donations/:id/..." so it is never read as an id.

@@ -669,6 +669,93 @@ const internalController = {
         .json({ success: false, message: err && err.message ? err.message : "Could not resend the receipt." });
     }
   },
+
+  // PUT /api/internal/drm/donors/by-mobile/:mobile/profile
+  //
+  // A correction made in DRM, pushed here.
+  //
+  // WHY THIS SITE IS THE AWKWARD ONE
+  // There is no donor collection here. A donor is a mobile number that several
+  // donations happen to share, and the name and address live on each donation
+  // row. So there is no profile to update - only donations.
+  //
+  // WHAT IT WRITES, AND WHY ONLY THAT
+  // The MOST RECENT donation only. That is the row a receipt reprint reads and
+  // the row a pending prasadam delivery is addressed from, so correcting it is
+  // what actually reaches the donor. Older donations are left exactly as the
+  // receipts already issued against them describe - rewriting those would make
+  // an issued receipt disagree with the record behind it, which for an 80G
+  // receipt is a real problem and not a tidiness question.
+  //
+  // The name is the exception: it is corrected across all of this donor's
+  // donations, because a misspelt name is a misspelling on every row and
+  // nobody reconciles receipts by donor name.
+  updateDonorProfile: async (req, res) => {
+    try {
+      const mobile = normalizeMobile(req.params.mobile);
+      if (!mobile) return res.status(400).json({ success: false, message: "Mobile number required" });
+
+      const donations = await findDonationsForMobile(mobile);
+      if (!donations.length) {
+        return res.json({ success: true, applied: false, message: "No donation from that mobile on this site." });
+      }
+
+      const latest = donations[0];
+      const { name, email, panNumber, address } = req.body || {};
+      const changed = [];
+      const set = {};
+
+      if (typeof email === "string" && email.trim()) set.email = email.trim();
+      if (typeof panNumber === "string" && panNumber.trim()) {
+        set.panNumber = panNumber.trim().toUpperCase();
+      }
+
+      if (address && typeof address === "object") {
+        if (typeof address.address === "string" && address.address.trim()) set.address = address.address.trim();
+        if (typeof address.city === "string" && address.city.trim()) set.city = address.city.trim();
+        if (typeof address.state === "string" && address.state.trim()) set.state = address.state.trim();
+        if (typeof address.pincode === "string" && address.pincode.trim()) set.pincode = address.pincode.trim();
+        if (Object.keys(set).some((k) => ["address", "city", "state", "pincode"].includes(k))) {
+          changed.push("address");
+        }
+      }
+      if (set.email) changed.push("email");
+      if (set.panNumber) changed.push("panNumber");
+
+      if (Object.keys(set).length) {
+        await donationModle.updateOne({ _id: latest._id }, { $set: set });
+      }
+
+      // The name, across every donation from this number.
+      let renamed = 0;
+      if (typeof name === "string" && name.trim()) {
+        const clean = name.trim().slice(0, 120);
+        const r = await donationModle.updateMany(
+          { mobile, name: { $ne: clean } },
+          { $set: { name: clean } }
+        );
+        renamed = r.modifiedCount || 0;
+        if (renamed) changed.push("name");
+      }
+
+      if (!changed.length) {
+        return res.json({ success: true, applied: false, message: "Nothing here differed." });
+      }
+
+      res.json({
+        success: true,
+        applied: true,
+        changed,
+        donationId: String(latest._id),
+        message:
+          `Updated ${changed.join(", ")} on the most recent donation` +
+          (renamed ? `, and the name on ${renamed} donation${renamed === 1 ? "" : "s"}.` : "."),
+      });
+    } catch (err) {
+      console.error("internal.updateDonorProfile error:", err);
+      res.status(500).json({ success: false, message: "Server error" });
+    }
+  },
 };
 
 module.exports = { internalController, normalizeMobile };
