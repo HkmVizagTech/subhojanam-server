@@ -10,6 +10,7 @@ const { prasadamController } = require("../controllers/prasadam.controller");
 const { subscriptionRepairController } = require("../controllers/subscription.repair.controller");
 const { wishController } = require("../controllers/wish.controller");
 const { pendingReminderController } = require("../controllers/pendingReminder.controller");
+const { pendingTransactionsController } = require("../controllers/pendingTransactions.controller");
 const { festivalCampaignController } = require("../controllers/festivalCampaign.controller");
 const multer = require("multer");
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
@@ -58,6 +59,10 @@ adminRouter.get("/wishes/preview-today", wishController.previewTodaysWishes);
 adminRouter.post("/wishes/trigger", wishController.triggerDailyWishes);
 
 adminRouter.get("/pending-reminders/preview", pendingReminderController.previewPendingReminders);
+
+adminRouter.get("/pending-transactions", pendingTransactionsController.list);
+adminRouter.post("/pending-transactions/:id/mark-paid", pendingTransactionsController.markPaid);
+adminRouter.post("/pending-transactions/:id/close", pendingTransactionsController.close);
 adminRouter.post("/pending-reminders/trigger", pendingReminderController.triggerPendingReminders);
 
 adminRouter.post(

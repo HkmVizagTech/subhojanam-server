@@ -100,6 +100,9 @@ const donationSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    // Set when an admin manually closes a stuck "created" record
+    closedReason: { type: String, default: "" },
+    closedAt: { type: Date },
     reviewAfter: Date,
     lastPaymentDate: Date,
 
