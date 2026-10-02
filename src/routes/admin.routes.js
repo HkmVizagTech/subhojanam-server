@@ -11,6 +11,7 @@ const { subscriptionRepairController } = require("../controllers/subscription.re
 const { wishController } = require("../controllers/wish.controller");
 const { pendingReminderController } = require("../controllers/pendingReminder.controller");
 const { pendingTransactionsController } = require("../controllers/pendingTransactions.controller");
+const { donorReceiptsController } = require("../controllers/donorReceipts.controller");
 const { festivalCampaignController } = require("../controllers/festivalCampaign.controller");
 const multer = require("multer");
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
@@ -63,6 +64,9 @@ adminRouter.get("/pending-reminders/preview", pendingReminderController.previewP
 adminRouter.get("/pending-transactions", pendingTransactionsController.list);
 adminRouter.post("/pending-transactions/:id/mark-paid", pendingTransactionsController.markPaid);
 adminRouter.post("/pending-transactions/:id/close", pendingTransactionsController.close);
+
+adminRouter.get("/donor-receipts/search", donorReceiptsController.search);
+adminRouter.post("/donor-receipts/send", donorReceiptsController.send);
 adminRouter.post("/pending-reminders/trigger", pendingReminderController.triggerPendingReminders);
 
 adminRouter.post(

@@ -71,3 +71,34 @@ async function sendPendingPaymentEmail(toEmail, donorName, amount, donationType 
 }
 
 module.exports = { sendPendingPaymentEmail };
+
+/**
+ * Emails an already-issued donation receipt (PDF attached).
+ */
+async function sendReceiptEmail(toEmail, donorName, amount, filePath, receiptNumber) {
+  const t = getTransporter();
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px; background: #FEF2E1; border-radius: 12px;">
+      <h2 style="color: #0A97EF; margin-bottom: 4px;">Hare Krishna ${donorName} 🙏</h2>
+      <p style="font-size: 15px; color: #333; line-height: 1.6;">
+        Thank you for your generous donation of <strong>₹${amount}</strong> towards Annadana Seva.
+        Please find your donation receipt${receiptNumber ? ` (<strong>${receiptNumber}</strong>)` : ""} attached.
+      </p>
+      <p style="font-size: 13px; color: #888; margin-top: 20px;">
+        Hare Krishna Movement, Visakhapatnam<br/>
+        annadan.harekrishnavizag.org
+      </p>
+    </div>
+  `;
+
+  return t.sendMail({
+    from: `"Hare Krishna Movement Vizag" <${process.env.OUTLOOK_EMAIL}>`,
+    to: toEmail,
+    subject: `Your Annadana Seva donation receipt${receiptNumber ? " - " + receiptNumber : ""} 🙏`,
+    html,
+    attachments: [{ filename: "Donation_Receipt.pdf", path: filePath }],
+  });
+}
+
+module.exports.sendReceiptEmail = sendReceiptEmail;

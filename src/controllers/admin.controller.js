@@ -1330,7 +1330,18 @@ const adminController = {
 
       // IMPORTANT: Never call DCC API here — only resend existing receipt
       // DCC API is called only once during webhook processing
-      const apiResponse = donation.externalApiResponse || null;
+      // Never let generateReceipt invent a local receipt number: only resend a
+      // receipt DCC has already issued for this donation.
+      const stored = donation.externalApiResponse || null;
+      const apiResponse = stored?.ReceiptNumber
+        ? stored
+        : (donation.receiptNumber ? { ...(stored || {}), ReceiptNumber: donation.receiptNumber } : null);
+      if (!apiResponse) {
+        return res.status(400).json({
+          success: false,
+          message: "No receipt has been issued for this payment yet. Create it from Missed Charges first.",
+        });
+      }
 
       // Generate receipt using existing data
       const filePath = await receiptService.generateReceipt(donation, apiResponse);
