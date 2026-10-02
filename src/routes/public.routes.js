@@ -564,4 +564,41 @@ publicRouter.get("/diag-check-razorpay-all-this-month", async (req, res) => {
   }
 });
 
+publicRouter.get("/diag-check-razorpay-all-alltime", async (req, res) => {
+  try {
+    const { razorpay } = require("../config/razorpay");
+    const subIds = await donationModelForBackfill.distinct("subscriptionId", {
+      isRecurring: true, subscriptionId: { $exists: true, $nin: [null, ""] },
+    });
+
+    const missing = [];
+    const errors = [];
+    let checkedCount = 0;
+    let totalPaidInvoicesSeen = 0;
+
+    for (const subId of subIds) {
+      try {
+        const invoiceResp = await razorpay.invoices.all({ subscription_id: subId, count: 100 });
+        const paidInvoices = (invoiceResp.items || []).filter(inv => inv.status === "paid" && inv.payment_id);
+        totalPaidInvoicesSeen += paidInvoices.length;
+
+        for (const inv of paidInvoices) {
+          const exists = await donationModelForBackfill.findOne({ razorpayPaymentId: inv.payment_id });
+          if (!exists) {
+            missing.push({ subscriptionId: subId, paymentId: inv.payment_id, created_at: new Date(inv.created_at * 1000).toISOString() });
+          }
+        }
+        checkedCount++;
+      } catch (e) {
+        errors.push({ subscriptionId: subId, error: e.message });
+      }
+      await new Promise(r => setTimeout(r, 350));
+    }
+
+    res.json({ totalSubscriptions: subIds.length, checkedCount, totalPaidInvoicesSeen, missingCount: missing.length, missing, errors });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 module.exports = { publicRouter };
