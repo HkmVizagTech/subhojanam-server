@@ -624,6 +624,56 @@ const adminController = {
     }
   },
 
+  // Attach a mahaprasadam delivery request to a donor's most recent paid
+  // donation — makes it appear immediately in the Prasadam admin page's
+  // Pending tab, even though prasadam wasn't requested at donation time.
+  requestPrasadamForDonor: async (req, res) => {
+    try {
+      const {
+        email, mobile,
+        prasadamName, prasadamMobile,
+        prasadamAddress, prasadamCity, prasadamState, prasadamPincode,
+      } = req.body;
+
+      if (!email && !mobile) {
+        return res.status(400).json({ success: false, message: "email or mobile required to identify donor" });
+      }
+      if (!prasadamAddress || !prasadamCity || !prasadamState || !prasadamPincode) {
+        return res.status(400).json({ success: false, message: "Full prasadam delivery address is required" });
+      }
+
+      const matchQuery = { status: { $in: ["paid", "active", "completed"] } };
+      if (email) matchQuery.email = email;
+      else matchQuery.mobile = mobile;
+
+      const mostRecent = await donationModle.findOne(matchQuery).sort({ createdAt: -1 });
+      if (!mostRecent) {
+        return res.status(404).json({ success: false, message: "No donation record found for this donor" });
+      }
+
+      mostRecent.mahaprasadam = true;
+      mostRecent.prasadamAddressOption = "different"; // explicit delivery address provided
+      mostRecent.prasadamName = prasadamName || mostRecent.name;
+      mostRecent.prasadamMobile = prasadamMobile || mostRecent.mobile;
+      mostRecent.prasadamAddress = prasadamAddress;
+      mostRecent.prasadamCity = prasadamCity;
+      mostRecent.prasadamState = prasadamState;
+      mostRecent.prasadamPincode = prasadamPincode;
+      mostRecent.prasadamDeliveryStatus = "pending";
+      await mostRecent.save();
+
+      res.status(200).json({
+        success: true,
+        message: "Prasadam request added — now visible in Prasadam > Pending",
+        donationId: mostRecent._id,
+        donorName: mostRecent.name,
+      });
+    } catch (error) {
+      console.error("Request prasadam for donor error:", error);
+      res.status(500).json({ success: false, message: "Failed to add prasadam request" });
+    }
+  },
+
   getDonorStats: async (req, res) => {
     try {
       const totalDonors = await donationModle.distinct("email", {

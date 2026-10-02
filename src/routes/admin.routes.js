@@ -84,6 +84,7 @@ adminRouter.post("/transactions/:id/resend-receipt", adminController.resendRecei
 adminRouter.get("/donors", adminController.getAllDonors);
 adminRouter.get("/donors/stats", adminController.getDonorStats);
 adminRouter.get("/donors/:email", adminController.getDonorById);
+adminRouter.post("/donors/request-prasadam", adminController.requestPrasadamForDonor);
 
 adminRouter.get("/analytics/overview", adminController.getAnalyticsOverview);
 adminRouter.get("/analytics/amount-range", adminController.getDonationsByAmountRange);
