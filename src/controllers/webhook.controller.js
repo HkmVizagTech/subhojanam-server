@@ -279,68 +279,78 @@ const webHookControler = {
               webhookProcessedAt: new Date(),
             });
 
-            // 4. Meta conversion
-            try {
-              const metaResponse = await metaConversionService.sendPurchaseEvent(newDonation, payment);
-              await donationModle.findByIdAndUpdate(newDonation._id, {
-                $set: { metaPurchaseResponse: metaResponse, metaPurchaseSentAt: new Date() },
-              });
-            } catch (metaErr) {
-              console.error("Meta error:", metaErr.message);
-            }
+            // Record is created and saved at this point — the donor's charge
+            // can NEVER be lost now, regardless of what happens next.
+            // Update original donation's lastPaymentDate (fire and forget)
+            donationModle.findByIdAndUpdate(originalDonation._id, {
+              $set: { lastPaymentDate: new Date() },
+            }).catch(e => console.error("lastPaymentDate update error:", e.message));
 
-            // 5. BCC API + Receipt + WhatsApp
-            if (newDonation.amount >= 1) {
-              let apiResponse = null;
-
-              // 5a. DCC API — if fails, stop here
+            // Everything below runs in the background, AFTER we respond —
+            // failures here affect receipt/WhatsApp delivery only, never
+            // the existence of the donation record itself.
+            (async () => {
+              // Meta conversion
               try {
-                apiResponse = await externalDonationService.sendToExternalApi(newDonation, payment);
+                const metaResponse = await metaConversionService.sendPurchaseEvent(newDonation, payment);
                 await donationModle.findByIdAndUpdate(newDonation._id, {
-                  $set: { externalApiResponse: apiResponse, externalApiSentAt: new Date(), donorNumber: apiResponse?.DonorNumber || "" },
+                  $set: { metaPurchaseResponse: metaResponse, metaPurchaseSentAt: new Date() },
                 });
-                console.log("✅ BCC API done for subscription:", apiResponse?.ReceiptNumber);
-              } catch (apiErr) {
-                console.error("⚠️ BCC API error for subscription — skipping receipt and WhatsApp:", apiErr.message);
-                break;
+              } catch (metaErr) {
+                console.error("Meta error:", metaErr.message);
               }
 
-              // 5b. Receipt — only if DCC succeeded
-              let filePath = null;
-              try {
-                filePath = await receiptService.generateReceipt(newDonation, apiResponse);
-                console.log("✅ Receipt generated for subscription charge:", payment.id);
-              } catch (receiptErr) {
-                console.error("⚠️ Receipt generation error for subscription:", receiptErr.message);
-              }
+              // BCC API + Receipt + WhatsApp
+              if (newDonation.amount >= 1) {
+                let apiResponse = null;
 
-              // 5c. WhatsApp — only if receipt generated, failure won't affect receipt
-              if (filePath) {
                 try {
-                  let phone = newDonation.mobile.replace(/\D/g, "");
-                  if (!phone.startsWith("91")) phone = `91${phone}`;
-                  await whatsappService.sendReceiptWhatsapp(phone, filePath, newDonation.name, newDonation.amount, "subscription");
-                  console.log("✅ WhatsApp sent for subscription charge:", payment.id);
-                } catch (waErr) {
-                  console.error("⚠️ WhatsApp error for subscription (receipt already saved):", waErr.message);
+                  apiResponse = await externalDonationService.sendToExternalApi(newDonation, payment);
+                  await donationModle.findByIdAndUpdate(newDonation._id, {
+                    $set: { externalApiResponse: apiResponse, externalApiSentAt: new Date(), donorNumber: apiResponse?.DonorNumber || "" },
+                  });
+                  console.log("✅ BCC API done for subscription:", apiResponse?.ReceiptNumber);
+                } catch (apiErr) {
+                  console.error("⚠️ BCC API error for subscription — receipt will be caught by Missing Receipts scan:", apiErr.message);
+                  return;
+                }
+
+                let filePath = null;
+                try {
+                  filePath = await receiptService.generateReceipt(newDonation, apiResponse);
+                  console.log("✅ Receipt generated for subscription charge:", payment.id);
+                } catch (receiptErr) {
+                  console.error("⚠️ Receipt generation error for subscription:", receiptErr.message);
+                }
+
+                if (filePath) {
+                  try {
+                    let phone = newDonation.mobile.replace(/\D/g, "");
+                    if (!phone.startsWith("91")) phone = `91${phone}`;
+                    await whatsappService.sendReceiptWhatsapp(phone, filePath, newDonation.name, newDonation.amount, "subscription");
+                    console.log("✅ WhatsApp sent for subscription charge:", payment.id);
+                  } catch (waErr) {
+                    console.error("⚠️ WhatsApp error for subscription (receipt already saved):", waErr.message);
+                  }
                 }
               }
-            }
 
-            // Trigger same-day birthday/anniversary wish if seva date = today
-            // TEMPORARILY DISABLED — do not push/enable until instructed
-            // maybeSendSameDayWish(newDonation).catch(err =>
-            //   console.error("[Same-day wish] subscription.charged error:", err.message)
-            // );
-
-            // 6. Update original donation's lastPaymentDate
-            await donationModle.findByIdAndUpdate(originalDonation._id, {
-              $set: { lastPaymentDate: new Date() },
-            });
+              // Trigger same-day birthday/anniversary wish if seva date = today
+              // TEMPORARILY DISABLED — do not push/enable until instructed
+              // maybeSendSameDayWish(newDonation).catch(err =>
+              //   console.error("[Same-day wish] subscription.charged error:", err.message)
+              // );
+            })().catch(bgErr => console.error("Background subscription processing error:", bgErr.message));
 
             // Same push for recurring charges - each monthly charge is a new
             // transaction DRM should reflect immediately.
             pushToDrm(newDonation._id, { reason: "subscription_charged" });
+
+            // ACK Razorpay NOW — the record already exists, so this delivery
+            // is successful regardless of how long DCC/PDF/WhatsApp take in
+            // the background above. This is what stops webhook timeouts from
+            // ever causing a missing donation record.
+            return res.status(200).send("Webhook processed — subscription charge recorded");
 
           } catch (subErr) {
             console.error("❌ subscription.charged error:", subErr.message);
