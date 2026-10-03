@@ -5,7 +5,85 @@ const whatsappService = require("../services/whatsapp.service");
 // TEMPORARILY DISABLED — birthday/anniversary wishes paused until templates are approved
 // const { maybeSendSameDayWish } = require("./wish.controller");
 
+const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const last10 = (m) => String(m || "").replace(/\D/g, "").slice(-10);
+
 const offlineDonationController = {
+
+  // Find existing donors (by name / mobile / email) so a new offline donation
+  // can be raised for them with their details pre-filled. Grouped by mobile.
+  lookupDonors: async (req, res) => {
+    try {
+      const search = (req.query.search || "").trim();
+      if (search.length < 3) {
+        return res.json({ success: true, donors: [] });
+      }
+      const rx = new RegExp(escapeRegex(search), "i");
+
+      const docs = await donationModle.find({
+        status: { $in: ["paid", "active", "completed"] },
+        amount: { $gte: 1 },
+        $and: [
+          { $or: [
+            { razorpayPaymentId: { $exists: true, $nin: [null, ""] } },
+            { offlineRefNo: { $exists: true, $nin: [null, ""] } },
+          ] },
+          { $or: [{ name: rx }, { mobile: rx }, { email: rx }] },
+        ],
+      })
+        .sort({ createdAt: -1 })
+        .limit(400)
+        .lean();
+
+      const groups = new Map();
+      for (const d of docs) {
+        const key = last10(d.mobile);
+        if (key.length !== 10) continue;
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(d);
+      }
+
+      const donors = [];
+      for (const [mobile, recs] of groups) {
+        const latest = recs[0]; // docs are newest-first
+        const with80G = recs.find((r) => r.panNumber);
+        const withPrasadam = recs.find((r) => r.mahaprasadam && r.prasadamAddress);
+        const withDob = recs.find((r) => r.dob);
+        const withEmail = recs.find((r) => r.email);
+
+        donors.push({
+          mobile,
+          name: (latest.name || "").trim(),
+          email: withEmail?.email || "",
+          dob: withDob?.dob || "",
+          panNumber: with80G?.panNumber || "",
+          address: with80G?.address || "",
+          city: with80G?.city || "",
+          state: with80G?.state || "",
+          pincode: with80G?.pincode || "",
+          prasadam: withPrasadam ? {
+            name: withPrasadam.prasadamName || "",
+            mobile: withPrasadam.prasadamMobile || "",
+            address: withPrasadam.prasadamAddress || "",
+            city: withPrasadam.prasadamCity || "",
+            state: withPrasadam.prasadamState || "",
+            pincode: withPrasadam.prasadamPincode || "",
+          } : null,
+          donationCount: recs.length,
+          totalGiven: recs.reduce((sum, r) => sum + (Number(r.amount) || 0), 0),
+          lastDonationAt: latest.createdAt,
+          lastAmount: latest.amount,
+        });
+        if (donors.length >= 8) break;
+      }
+
+      res.json({ success: true, donors });
+    } catch (err) {
+      console.error("Offline donor lookup error:", err);
+      res.status(500).json({ success: false, message: err.message });
+    }
+  },
+
 
   createOfflineDonation: async (req, res) => {
     try {

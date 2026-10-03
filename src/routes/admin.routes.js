@@ -38,6 +38,7 @@ adminRouter.get("/transactions", adminController.getAllTransactions);
 adminRouter.get("/transactions/receipt-debug", adminController.receiptDebug);
 adminRouter.post("/transactions/register-subscription-charge", adminController.registerSubscriptionCharge);
 adminRouter.post("/transactions/offline", offlineDonationController.createOfflineDonation);
+adminRouter.get("/transactions/offline/donor-lookup", offlineDonationController.lookupDonors);
 
 adminRouter.get("/prasadam", prasadamController.getPrasadamList);
 adminRouter.post("/prasadam/mark-delivered", prasadamController.markDelivered);
