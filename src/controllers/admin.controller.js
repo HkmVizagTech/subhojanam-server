@@ -3,6 +3,7 @@ const { settingsModel } = require("../models/settings.model");
 const receiptService = require("../services/receipt.service");
 const whatsappService = require("../services/whatsapp.service");
 const externalDonationService = require("../services/externalDonation.service");
+const { IST, istDayStart, istDayEnd } = require("../config/timezone");
 
 const adminController = {
   getUtmStats: async (req, res) => {
@@ -237,15 +238,24 @@ const adminController = {
         {
           $match: {
             status: { $in: ["paid", "active", "completed"] },
+            // These bounds were new Date("<year>-01-01") and
+            // new Date("<year>-12-31"). A date-only string parses as UTC
+            // midnight, so the window both started 5.5 hours into 1 January IST
+            // and ended at the START of 31 December, dropping almost all of
+            // that last day from the chart.
             createdAt: {
-              $gte: new Date(`${year}-01-01`),
-              $lte: new Date(`${year}-12-31`),
+              $gte: istDayStart(`${year}-01-01`),
+              $lte: istDayEnd(`${year}-12-31`),
             },
           },
         },
         {
           $group: {
-            _id: { $month: "$createdAt" },
+            // $month runs inside MongoDB, which has no idea what timezone this
+            // Node process is set to, so it bucketed by UTC month regardless of
+            // TZ. Without this option the chart below would disagree with the
+            // IST range filters beside it.
+            _id: { $month: { date: "$createdAt", timezone: IST } },
             amount: { $sum: "$amount" },
             count: { $sum: 1 },
           },
@@ -343,8 +353,12 @@ const adminController = {
 
       if (startDate || endDate) {
         query.createdAt = {};
-        if (startDate) query.createdAt.$gte = new Date(startDate);
-        if (endDate) { const end = new Date(endDate); end.setHours(23,59,59,999); query.createdAt.$lte = end; }
+        // IST calendar-day bounds. The old $gte was new Date(startDate) on a
+        // "YYYY-MM-DD" from the date picker, which parses as UTC midnight and
+        // so began the range at 05:30 IST — every donation in the first five
+        // and a half hours of the start day was missing from the results.
+        if (startDate) query.createdAt.$gte = istDayStart(startDate);
+        if (endDate) query.createdAt.$lte = istDayEnd(endDate);
       }
 
       if (typeof mahaprasadam !== "undefined") {
@@ -444,8 +458,12 @@ const adminController = {
 
       if (startDate || endDate) {
         query.createdAt = {};
-        if (startDate) query.createdAt.$gte = new Date(startDate);
-        if (endDate) { const end = new Date(endDate); end.setHours(23,59,59,999); query.createdAt.$lte = end; }
+        // IST calendar-day bounds. The old $gte was new Date(startDate) on a
+        // "YYYY-MM-DD" from the date picker, which parses as UTC midnight and
+        // so began the range at 05:30 IST — every donation in the first five
+        // and a half hours of the start day was missing from the results.
+        if (startDate) query.createdAt.$gte = istDayStart(startDate);
+        if (endDate) query.createdAt.$lte = istDayEnd(endDate);
       }
 
       if (search) {
@@ -1039,8 +1057,12 @@ const adminController = {
       }
       if (startDate || endDate) {
         query.createdAt = {};
-        if (startDate) query.createdAt.$gte = new Date(startDate);
-        if (endDate) { const end = new Date(endDate); end.setHours(23,59,59,999); query.createdAt.$lte = end; }
+        // IST calendar-day bounds. The old $gte was new Date(startDate) on a
+        // "YYYY-MM-DD" from the date picker, which parses as UTC midnight and
+        // so began the range at 05:30 IST — every donation in the first five
+        // and a half hours of the start day was missing from the results.
+        if (startDate) query.createdAt.$gte = istDayStart(startDate);
+        if (endDate) query.createdAt.$lte = istDayEnd(endDate);
       }
 
       // Add mahaprasadam filter if present

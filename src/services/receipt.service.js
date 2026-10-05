@@ -4,6 +4,7 @@ const fs = require("fs");
 const path = require("path");
 const { settingsModel } = require("../models/settings.model");
 const { donationModle } = require("../models/donation.model");
+const { istDateDDMMYYYY, istYear } = require("../config/timezone");
 const numberToWords = require("number-to-words");
 
 let sharedBrowser = null;
@@ -61,6 +62,26 @@ const generatePDF = async (html, filePath) => {
   }
 };
 
+/**
+ * The instant the donation actually happened.
+ *
+ * Everything a receipt says about "when" has to come from here, not from the
+ * clock. `createdAt` is set by mongoose timestamps on online donations and is
+ * set explicitly from the entered payment date on offline ones raised in DRM,
+ * so it is the one field that means "when the money came in" on both paths.
+ *
+ * Falls back to now only if a caller passes an object with no usable date,
+ * which no production path does.
+ */
+const donationInstant = (donation) => {
+  const raw = donation?.createdAt;
+  if (raw) {
+    const d = raw instanceof Date ? raw : new Date(raw);
+    if (!Number.isNaN(d.getTime())) return d;
+  }
+  return new Date();
+};
+
 const generateReceipt = async (donation, apiResponse = null) => {
   try {
     console.log("Receipt generation started for donation:", donation._id);
@@ -89,22 +110,70 @@ const generateReceipt = async (donation, apiResponse = null) => {
       }
     }
 
+    // Every date on this certificate is the donation's own date in IST, never
+    // the clock at the moment the PDF happens to be rendered. See below.
+    const donatedAt = donationInstant(donation);
+
     let formattedReceiptNumber;
     if (apiResp?.ReceiptNumber) {
       formattedReceiptNumber = apiResp.ReceiptNumber;
       console.log("✅ Using API receipt number:", formattedReceiptNumber);
     } else {
-      const localNumber =
-        settings.receiptSettings.currentReceiptNumber ||
-        settings.receiptSettings.startNumber;
-      formattedReceiptNumber = `HKMI|${new Date().getFullYear()}|D/VSP|${String(localNumber).padStart(5, "0")}`;
+      // The year in the fallback receipt number was `new Date().getFullYear()`:
+      // the UTC year, at generation time. Both halves were wrong. A donation
+      // made in the 00:00–05:30 IST window on 1 January was still the previous
+      // year in UTC, so it got the previous year baked permanently into its
+      // receipt number; and taking the year from generation time rather than
+      // from the donation meant a receipt produced in January for a December
+      // donation was numbered in the wrong year too.
+      const receiptYear = istYear(donatedAt);
+
+      // Allocating the number used to be a read-modify-write across two calls:
+      // read currentReceiptNumber, then write currentReceiptNumber + 1. Two
+      // receipts generated at the same time read the same value and both took
+      // it, so two different donors could be issued the same receipt number on
+      // a legal 80G document. A single findOneAndUpdate with $inc makes the
+      // allocation atomic — each caller gets a number nobody else can get.
+      //
+      // $inc returns the number AFTER incrementing, so the one to use is the
+      // value it replaced, exactly as the old code used the pre-increment value.
+      if (typeof settings.receiptSettings?.currentReceiptNumber !== "number") {
+        // Seed only if it has never been set, and only once: the filter is part
+        // of the update, so concurrent callers cannot both seed it.
+        await settingsModel.updateOne(
+          {
+            _id: settings._id,
+            "receiptSettings.currentReceiptNumber": { $not: { $type: "number" } },
+          },
+          {
+            $set: {
+              "receiptSettings.currentReceiptNumber":
+                settings.receiptSettings?.startNumber ?? 1000,
+            },
+          },
+        );
+      }
+
+      const bumped = await settingsModel.findOneAndUpdate(
+        { _id: settings._id },
+        { $inc: { "receiptSettings.currentReceiptNumber": 1 } },
+        { new: true, projection: { "receiptSettings.currentReceiptNumber": 1 } },
+      );
+      const localNumber = bumped.receiptSettings.currentReceiptNumber - 1;
+
+      formattedReceiptNumber = `HKMI|${receiptYear}|D/VSP|${String(localNumber).padStart(5, "0")}`;
       console.log("⚠️ Using local receipt number:", formattedReceiptNumber);
-      await settingsModel.findByIdAndUpdate(settings._id, {
-        $set: { "receiptSettings.currentReceiptNumber": localNumber + 1 },
-      });
     }
 
-    const receiptDate = new Date().toLocaleDateString("en-GB");
+    // This was `new Date().toLocaleDateString("en-GB")`, and it fed both the
+    // receipt date and the payment date on the certificate. Two bugs in one
+    // line. It had no timezone, so it printed the UTC day and a donation at 2am
+    // IST was certified as having been made the day before. And it was the
+    // clock, not the donation: a receipt regenerated later, or a backdated
+    // offline donation entered from DRM, printed TODAY as the date the money
+    // came in. A reprint must show what the original showed, so both dates now
+    // come from the donation's own timestamp, pinned to IST.
+    const receiptDate = istDateDDMMYYYY(donatedAt);
     const addr = donation.address || donation.prasadamAddress || "";
     const addrCity = donation.city || donation.prasadamCity || "";
     const addrState = donation.state || donation.prasadamState || "";

@@ -7,6 +7,7 @@ const whatsappService = require("../services/whatsapp.service");
 
 const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const last10 = (m) => String(m || "").replace(/\D/g, "").slice(-10);
+const { istDayStart } = require("../config/timezone");
 
 const offlineDonationController = {
 
@@ -97,6 +98,14 @@ const offlineDonationController = {
         prasadamCity, prasadamState, prasadamPincode,
         sevakName, sevakMobile, sevaDate,
         dob,
+        // The preacher's DCC id number, sent by DRM. Without it DCC records
+        // every donation raised this way under the hardcoded default, so a
+        // donation a named preacher brought in is credited to nobody.
+        dccEnrolledById,
+        // The gateway's id when the money came through a Razorpay QR (sent
+        // by DRM). Stored in razorpayPaymentId so the admin list shows and
+        // searches it like any online payment.
+        razorpayPaymentId,
       } = req.body;
 
       if (!name || !mobile || !amount || !offlineRefNo) {
@@ -116,6 +125,7 @@ const offlineDonationController = {
         amount: Number(amount),
         offlineRefNo,
         offlinePaymentMode: offlinePaymentMode || "other",
+        ...(razorpayPaymentId ? { razorpayPaymentId: String(razorpayPaymentId).trim() } : {}),
         donationSource: "offline",
         showInTransactions: showInTransactions !== false,
         mahaprasadam: mahaprasadam || false,
@@ -138,10 +148,21 @@ const offlineDonationController = {
         sevakMobile: sevakMobile || "",
         sevaDate: sevaDate || "",
         dob: dob || "",
+        // Stored only when it is a real number; anything else is left unset so
+        // the DCC default applies exactly as it did before.
+        dccEnrolledById:
+          dccEnrolledById != null && dccEnrolledById !== "" && Number.isFinite(Number(dccEnrolledById))
+            ? Number(dccEnrolledById)
+            : undefined,
         status: "paid",
         webhookProcessed: true,
         webhookProcessedAt: new Date(),
-        createdAt: paymentDate ? new Date(paymentDate) : new Date(),
+        // A backdated offline donation's paymentDate arrives as "YYYY-MM-DD",
+        // which new Date() parses as UTC midnight — 05:30 IST, so the stored
+        // instant sat 5.5 hours inside the right IST day by luck rather than by
+        // design. Anchored to IST midnight it is unambiguously that IST day,
+        // which is what the receipt and the DCC filing now read it as.
+        createdAt: paymentDate ? istDayStart(paymentDate) : new Date(),
       });
 
       // 1. DCC API

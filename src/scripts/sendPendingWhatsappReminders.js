@@ -1,4 +1,10 @@
 // Script to send WhatsApp reminders for pending (created, not paid) donations
+
+// MUST stay the first require in this file. It sets the process timezone to
+// IST, and a require placed above it would evaluate — and read the wrong
+// timezone — first.
+require('../config/timezone');
+
 const mongoose = require('mongoose');
 const { donationModle } = require('../models/donation.model');
 const { sendPendingWhatsapp } = require('../services/whatsapp.service');

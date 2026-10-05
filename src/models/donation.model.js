@@ -40,6 +40,11 @@ const donationSchema = new mongoose.Schema(
     prasadamTrackingNumber: { type: String },
 
     receiptNumber: { type: String },
+    // The DCC "enrolled by" id for the preacher who brought this donor in.
+    // Set on donations DRM raises; null everywhere else, which is what makes
+    // the service below fall back to the default for ordinary online giving.
+    dccEnrolledById: { type: Number, default: null },
+
     donorNumber: { type: String, default: "" },
     receiptGeneratedAt: { type: Date },
     // When a receipt was last MANUALLY re-sent (from DRM). Separate from

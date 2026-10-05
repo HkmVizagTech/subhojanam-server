@@ -1,5 +1,6 @@
 const { donationModle } = require("../models/donation.model");
 const { sendPrasadamDispatchWhatsapp } = require("../services/whatsapp.service");
+const { istDayStart, istDayEnd } = require("../config/timezone");
 
 const prasadamController = {
 
@@ -18,8 +19,13 @@ const prasadamController = {
 
       if (startDate || endDate) {
         query.createdAt = {};
-        if (startDate) query.createdAt.$gte = new Date(startDate);
-        if (endDate) { const end = new Date(endDate); end.setHours(23,59,59,999); query.createdAt.$lte = end; }
+        // IST calendar-day bounds. The old $gte was new Date(startDate) on a
+        // "YYYY-MM-DD" from the date picker, which parses as UTC midnight and
+        // so began the range at 05:30 IST — prasadam orders placed in the first
+        // five and a half hours of the start day never appeared in the packing
+        // list for that day.
+        if (startDate) query.createdAt.$gte = istDayStart(startDate);
+        if (endDate) query.createdAt.$lte = istDayEnd(endDate);
       }
 
       if (search) {

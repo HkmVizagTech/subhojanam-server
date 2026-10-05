@@ -94,6 +94,11 @@
 
 // server();
 
+// MUST stay the first require in this file. It sets the process timezone to
+// IST, and a require placed above it would evaluate — and read the wrong
+// timezone — first.
+require("./src/config/timezone");
+
 const express = require("express");
 const path = require("path");
 const fs = require("fs");
