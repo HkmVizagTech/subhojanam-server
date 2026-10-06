@@ -245,6 +245,21 @@ const generateReceipt = async (donation, apiResponse = null) => {
     });
 
     console.log("Receipt PDF generated successfully!");
+
+    // Tell DRM, whatever path raised this receipt - the offline donation
+    // form, a missed or repaired subscription charge, a regenerated receipt.
+    // Only the online webhook used to push, so a cash or cheque receipt raised
+    // on this admin never reached DRM until somebody ran a full import there.
+    // Fire-and-forget and never throws; DRM upserts by id, so a second push
+    // for the same donation is harmless. Required here, not at the top, to
+    // keep the services free of a require cycle.
+    try {
+      const { pushToDrm } = require("./drmNotify.service");
+      pushToDrm(donation._id, { reason: "receipt_generated" });
+    } catch (e) {
+      console.warn("DRM push not started (non-fatal):", e && e.message ? e.message : e);
+    }
+
     return filePath;
   } catch (error) {
     console.error("Error in generateReceipt:", error);
