@@ -282,7 +282,7 @@
           </div>
 
           <div class="flex-gap">
-            <p>by <span class="bold">Online</span></p>
+            <p>by <span class="bold"><%= typeof paidBy !== 'undefined' && paidBy ? paidBy : 'Online' %></span></p>
             <p class="ml-50">Reference No : <%= paymentRef %></p>
             <p style="margin-left: 55px">Date : <%= paymentDate %></p>
           </div>

@@ -137,7 +137,12 @@ function mapDonation(d) {
     utm: d.utm
       ? { source: d.utm.source || null, medium: d.utm.medium || null, campaign: d.utm.campaign || null }
       : null,
-    paymentRef: d.razorpayPaymentId || d.offlineRefNo || null,
+    // The UTR / cheque no. first: it is what matches the bank statement.
+    paymentRef: d.offlineRefNo || d.razorpayPaymentId || null,
+    // How the money came in. Without these DRM recorded every offline
+    // donation (cash, cheque, bank) as a UPI payment made on the website.
+    paymentMode: d.donationSource === "offline" ? d.offlinePaymentMode || "other" : "online",
+    offline: d.donationSource === "offline",
     prasadam: d.mahaprasadam
       ? {
           // This site tracks only pending/delivered; DRM's richer status set

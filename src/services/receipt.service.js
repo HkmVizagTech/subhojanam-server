@@ -178,7 +178,15 @@ const generateReceipt = async (donation, apiResponse = null) => {
     const addrCity = donation.city || donation.prasadamCity || "";
     const addrState = donation.state || donation.prasadamState || "";
     const addrPincode = donation.pincode || donation.prasadamPincode || "";
-    const address = `${addr}, ${addrCity}, ${addrState} - ${addrPincode}`;
+    // Empty parts dropped before joining. The fixed template printed
+    // "9 Siripuram, Visakhapatnam,  - 530003" for an address with no state,
+    // and ", ,  - " for one with nothing at all.
+    const addrLine = [addr, addrCity, addrState].map((x) => String(x || "").trim()).filter(Boolean).join(", ");
+    const address = addrPincode ? (addrLine ? `${addrLine} - ${addrPincode}` : String(addrPincode)) : addrLine;
+    // How the money came in, printed after "by". The template said "Online"
+    // on every receipt, including cash and cheque donations entered offline.
+    const PAID_BY = { cash: "Cash", cheque: "Cheque", upi: "UPI", phonepe: "UPI", bank_transfer: "Bank" };
+    const paidBy = donation.donationSource === "offline" ? PAID_BY[donation.offlinePaymentMode] || "Online" : "Online";
 
     const logoBase64 = fs.readFileSync(
       path.join(__dirname, "../public/hkmi-logo.jpg"),
@@ -207,7 +215,10 @@ const generateReceipt = async (donation, apiResponse = null) => {
       pan: donation.panNumber || "",
       amount: donation.amount || 0,
       amountWords,
-      paymentRef: donation.razorpayPaymentId || donation.offlineRefNo || "",
+      // The UTR / cheque no. first, when there is one: it is what the donor
+      // sees on their bank statement. A website payment has only the gateway id.
+      paymentRef: donation.offlineRefNo || donation.razorpayPaymentId || "",
+      paidBy,
       paymentDate: receiptDate,
       enrolledBy: apiResp?.EnrolledBy || apiResp?.EnrolledByName || "",
       cdc: apiResp?.CDC || apiResp?.CDCName || "",
