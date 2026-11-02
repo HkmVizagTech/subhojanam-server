@@ -1,6 +1,6 @@
 // Daily "Laxmi Points" feed to Airtable (the same feed the HKM Vizag site sends, for this site's donations).
 //
-// Once a day, shortly after 1 AM India time, the previous calendar day (00:00 to 24:00 IST) is totalled and one row
+// Once a day, at 1:10 AM India time (ten minutes after the HKM Vizag site posts its row, so the two never overlap), the previous calendar day (00:00 to 24:00 IST) is totalled and one row
 // is created in the Airtable table:
 //   Date               the day that was totalled (YYYY-MM-DD, IST), so the run at 1 AM on the 1st reports the 31st
 //   Laxmi Points       donation amount that day divided by 10 (Rs. 10,000 -> 1000), rounded to a whole number
@@ -23,6 +23,8 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const POINTS_DIVISOR = 10;
 const MAX_ATTEMPTS = 12;
 const STALE_CLAIM_MS = 10 * 60 * 1000;
+// Posts start 70 minutes after IST midnight (01:10). The HKM Vizag site's job starts at 01:00.
+const START_MINUTE_OF_DAY = 70;
 const CONFIRMED_STATUSES = ["paid", "active", "completed"];
 
 const config = () => ({
@@ -50,7 +52,12 @@ const istDateOf = (instant = new Date()) => {
   const d = new Date(instant.getTime() + IST_OFFSET_MS);
   return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
 };
-const istHourOf = (instant = new Date()) => new Date(instant.getTime() + IST_OFFSET_MS).getUTCHours();
+const istMinuteOfDay = (instant = new Date()) => {
+  const d = new Date(instant.getTime() + IST_OFFSET_MS);
+  return d.getUTCHours() * 60 + d.getUTCMinutes();
+};
+// True from 01:10 IST until the end of that India-time day.
+const isPostingTime = (instant = new Date()) => istMinuteOfDay(instant) >= START_MINUTE_OF_DAY;
 
 // [start, end) of an India-time calendar day, as real instants.
 const istDayRange = (dateStr) => {
@@ -147,7 +154,7 @@ async function syncLaxmiPoints(dateStr) {
 let running = false;
 async function runLaxmiCheck() {
   if (running) return;
-  if (istHourOf() < 1) return; // the day's total is posted from 01:00 IST on
+  if (!isPostingTime()) return; // the day's total is posted from 01:10 IST on
   running = true;
   try {
     const dateStr = yesterdayIst();
@@ -167,9 +174,9 @@ function startAirtableLaxmiJob() {
     console.log("[airtable-laxmi] AIRTABLE_TOKEN not set; daily Laxmi Points job is off");
     return;
   }
-  // Every 5 minutes: the first pass after 01:00 IST posts yesterday, later passes only retry a failed post.
+  // Every 5 minutes: the first pass at or after 01:10 IST posts yesterday, later passes only retry a failed post.
   cron.schedule("*/5 * * * *", runLaxmiCheck, { timezone: "Asia/Kolkata" });
-  console.log("[airtable-laxmi] daily Laxmi Points job scheduled (posts from 01:00 IST)");
+  console.log("[airtable-laxmi] daily Laxmi Points job scheduled (posts from 01:10 IST)");
 }
 
-module.exports = { startAirtableLaxmiJob, syncLaxmiPoints, computeDay, istDateOf, istDayRange, yesterdayIst, cleanMobile };
+module.exports = { isPostingTime, startAirtableLaxmiJob, syncLaxmiPoints, computeDay, istDateOf, istDayRange, yesterdayIst, cleanMobile };
