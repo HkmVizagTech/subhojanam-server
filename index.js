@@ -157,6 +157,7 @@ const helmet = require("helmet");
 const { donationModle } = require("./src/models/donation.model");
 const { sendPendingWhatsapp } = require("./src/services/whatsapp.service");
 const cron = require("node-cron");
+const { startAirtableLaxmiJob } = require("./src/services/airtableLaxmi.service");
 // TEMPORARILY DISABLED — do not push/enable until instructed
 // const { runDailyWishes } = require("./src/controllers/wish.controller");
 const { runPendingReminders } = require("./src/controllers/pendingReminder.controller");
@@ -318,6 +319,10 @@ const server = async () => {
         { timezone: "Asia/Kolkata" },
       );
       console.log("📅 Pending payment reminders cron scheduled every 15 minutes");
+
+      // Daily Laxmi Points row in Airtable (yesterday's confirmed donations / 10, unique donor contacts).
+      // Off unless AIRTABLE_TOKEN is set. Disable with AIRTABLE_LAXMI_ENABLED=false.
+      startAirtableLaxmiJob();
     });
   } catch (error) {
     console.log("❌ Server disconnected", error);
