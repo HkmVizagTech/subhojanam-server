@@ -626,7 +626,7 @@ const internalController = {
           $or: [{ receiptResendAt: { $exists: false } }, { receiptResendAt: null }, { receiptResendAt: { $lte: cutoff } }],
         },
         { $set: { receiptResendAt: now } },
-        { new: true }
+        { returnDocument: "after" }
       );
 
       if (!locked) {

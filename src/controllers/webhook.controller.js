@@ -77,7 +77,7 @@ const webHookControler = {
                   webhookProcessedAt: new Date(),
                 },
               },
-              { new: true },
+              { returnDocument: "after" },
             );
 
             if (!donation) return res.status(200).send("Update failed");
@@ -174,7 +174,7 @@ const webHookControler = {
           const updated = await donationModle.findOneAndUpdate(
             { subscriptionId: subscription.id },
             { status: "active" },
-            { new: true },
+            { returnDocument: "after" },
           );
           // DRM mirrors subscription state, so a status change matters there
           // as much as a charge does.
@@ -366,7 +366,7 @@ const webHookControler = {
           const updated = await donationModle.findOneAndUpdate(
             { subscriptionId: subscription.id },
             { status: "cancelled" },
-            { new: true },
+            { returnDocument: "after" },
           );
           // DRM mirrors subscription state, so a status change matters there
           // as much as a charge does.
@@ -379,7 +379,7 @@ const webHookControler = {
           const updated = await donationModle.findOneAndUpdate(
             { subscriptionId: subscription.id },
             { status: "completed" },
-            { new: true },
+            { returnDocument: "after" },
           );
           // DRM mirrors subscription state, so a status change matters there
           // as much as a charge does.

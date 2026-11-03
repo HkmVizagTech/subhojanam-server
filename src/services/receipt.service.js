@@ -157,7 +157,7 @@ const generateReceipt = async (donation, apiResponse = null) => {
       const bumped = await settingsModel.findOneAndUpdate(
         { _id: settings._id },
         { $inc: { "receiptSettings.currentReceiptNumber": 1 } },
-        { new: true, projection: { "receiptSettings.currentReceiptNumber": 1 } },
+        { returnDocument: "after", projection: { "receiptSettings.currentReceiptNumber": 1 } },
       );
       const localNumber = bumped.receiptSettings.currentReceiptNumber - 1;
 
