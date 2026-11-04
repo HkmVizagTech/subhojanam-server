@@ -8,13 +8,17 @@ const EXTERNAL_API_URL =
 const EXTERNAL_API_KEY =
   process.env.EXTERNAL_DONATION_API_KEY || "DCCVSKPSM261089F7A3XQ8L2B";
 
+// DCC's own ModeOfPayment table: 1 Cash, 2 Card, 3 Online, 4 Cheque/DD, 5 Others.
+// UPI and a bank transfer are both "Online" (DCC asks for the UTR as the Transaction
+// Number plus the day). Cheque is 4: it was 2, which is Card, and a bank transfer was 4,
+// which is Cheque/DD. Same table and env names as the main site's dcc.service.js.
 const OFFLINE_MODES = {
   online: Number(process.env.DCC_MODE_ONLINE || 3),
   cash: Number(process.env.DCC_MODE_CASH || 1),
-  cheque: Number(process.env.DCC_MODE_CHEQUE || 2),
+  cheque: Number(process.env.DCC_MODE_CHEQUE || 4),
   upi: Number(process.env.DCC_MODE_UPI || 3),
   phonepe: Number(process.env.DCC_MODE_UPI || 3),
-  bank_transfer: Number(process.env.DCC_MODE_BANK || 4),
+  bank_transfer: Number(process.env.DCC_MODE_BANK || 3),
   other: Number(process.env.DCC_MODE_ONLINE || 3),
 };
 
