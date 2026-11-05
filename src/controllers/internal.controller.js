@@ -178,17 +178,59 @@ function mapDonorOf(d) {
   };
 }
 
+// A subscription's state, read from ONE of its rows. Each charge is its own row here, and the
+// subscription webhooks (cancelled / completed) write their status onto just ONE of them, so one row on
+// its own cannot say what the subscription is - see collapseSubscriptionRows.
+//
+//   cancelled  the donor or the bank stopped it (cancelled, halted)
+//   completed  it reached the end of its term (the "completed" status) - it ENDED, it is not a payment
+//   active     a charge was paid, or Razorpay marked it active
+//   pending    set up (created / pending) but nothing paid yet
+function subscriptionStateOf(status) {
+  if (status === "cancelled" || status === "halted") return "cancelled";
+  if (status === "completed") return "completed";
+  if (CONFIRMED_STATUSES.includes(status) || status === "active") return "active";
+  return "pending";
+}
+
+// Which state wins when a subscription's rows disagree: stopping outranks ending outranks running
+// outranks not-started. A cancelled row anywhere means the subscription is cancelled, whichever row the
+// webhook happened to write it on.
+const STATE_RANK = { pending: 0, active: 1, completed: 2, cancelled: 3 };
+
 function mapSubscriptionOf(d) {
   if (!d.isRecurring || !d.subscriptionId) return null;
   return {
     subscriptionId: d.subscriptionId,
     sevaName: d.occasion || "Monthly Annadan Seva",
     amount: d.amount,
-    status: d.status === "cancelled" || d.status === "halted" ? "cancelled" : "active",
+    status: subscriptionStateOf(d.status),
     startedAt: d.createdAt,
     lastChargedAt: CONFIRMED_STATUSES.includes(d.status) ? d.createdAt : null,
     chargeCount: CONFIRMED_STATUSES.includes(d.status) ? 1 : 0,
   };
+}
+
+// One entry per subscription from a donor's rows (newest first): the charges added up, the latest charge
+// date, the earliest start, and the strongest state any row carries.
+function collapseSubscriptionRows(donations) {
+  const subs = new Map();
+  for (const d of donations) {
+    const s = mapSubscriptionOf(d);
+    if (!s) continue;
+    const existing = subs.get(s.subscriptionId);
+    if (!existing) {
+      subs.set(s.subscriptionId, s);
+      continue;
+    }
+    existing.chargeCount += s.chargeCount;
+    if (s.lastChargedAt && (!existing.lastChargedAt || s.lastChargedAt > existing.lastChargedAt)) {
+      existing.lastChargedAt = s.lastChargedAt;
+    }
+    if (s.startedAt < existing.startedAt) existing.startedAt = s.startedAt;
+    if (STATE_RANK[s.status] > STATE_RANK[existing.status]) existing.status = s.status;
+  }
+  return Array.from(subs.values());
 }
 
 // How long after a manual resend another one is refused. Long enough that a
@@ -313,25 +355,12 @@ const internalController = {
         city: withAddress.city, state: withAddress.state, pincode: withAddress.pincode,
         createdAt: oldest.createdAt });
 
-      const subs = new Map();
-      for (const d of donations) {
-        const s = mapSubscriptionOf(d);
-        if (!s) continue;
-        const existing = subs.get(s.subscriptionId);
-        if (!existing) { subs.set(s.subscriptionId, s); continue; }
-        existing.chargeCount += s.chargeCount;
-        if (s.lastChargedAt && (!existing.lastChargedAt || s.lastChargedAt > existing.lastChargedAt)) {
-          existing.lastChargedAt = s.lastChargedAt;
-        }
-        if (s.startedAt < existing.startedAt) existing.startedAt = s.startedAt;
-      }
-
       res.json({
         success: true,
         found: true,
         donor,
         donations: donations.map(mapDonation),
-        subscriptions: Array.from(subs.values()),
+        subscriptions: collapseSubscriptionRows(donations),
       });
     } catch (err) {
       console.error("internal.getDonorByMobile error:", err);
@@ -763,4 +792,4 @@ const internalController = {
   },
 };
 
-module.exports = { internalController, normalizeMobile };
+module.exports = { internalController, normalizeMobile, mapSubscriptionOf, collapseSubscriptionRows };
