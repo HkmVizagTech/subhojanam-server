@@ -2,7 +2,7 @@
 // a cancelled / ended subscription is not reported as running just because the webhook wrote the status
 // on an older charge's row. No database: plain objects.
 //   node scripts/test-subscription-state.js
-const { collapseSubscriptionRows, mapSubscriptionOf } = require("../src/controllers/internal.controller");
+const { collapseSubscriptionRows, mapSubscriptionOf, withLiveStatus } = require("../src/controllers/internal.controller");
 
 let failures = 0;
 const check = (label, actual, expected) => {
@@ -36,6 +36,14 @@ check("cancelled beats paid when cancelled is the newest too", s.status, "cancel
 const two = collapseSubscriptionRows([row("paid", 25), row("paid", 20, { subscriptionId: "sub_2" })]);
 check("two subscriptions stay two", two.map((x) => x.subscriptionId).sort(), ["sub_1", "sub_2"]);
 
-if (failures) { console.error(`\n${failures} FAILED`); process.exit(1); }
-console.log("\nall passed");
-process.exit(0);
+
+console.log("\n--- Razorpay live status (stub client, no network) ---");
+(async () => {
+  const stub = { subscriptions: { fetch: async (id) => { if (id === "sub_bad") throw new Error("down"); return { status: id === "sub_x" ? "cancelled" : "active", paid_count: 4 }; } } };
+  const out = await withLiveStatus([{ subscriptionId: "sub_x" }, { subscriptionId: "sub_y" }, { subscriptionId: "sub_bad" }], stub);
+  check("cancelled in Razorpay", out[0].liveStatus, "cancelled");
+  check("active in Razorpay, paid count kept", [out[1].liveStatus, out[1].paidCount], ["active", 4]);
+  check("unreachable -> no liveStatus", out[2].liveStatus, undefined);
+  console.log(failures ? `\n${failures} failed` : "\nall passed");
+  process.exit(failures ? 1 : 0);
+})();

@@ -233,6 +233,32 @@ function collapseSubscriptionRows(donations) {
   return Array.from(subs.values());
 }
 
+// Razorpay's own status for each subscription, so DRM counts the ones really running (a cancelled one
+// can still have a recent paid charge on its rows). Read-only lookups, cached for 5 minutes, each bounded
+// to a few seconds; if Razorpay cannot be reached the subscription is sent without liveStatus and DRM
+// falls back to its own rule.
+const liveStatusCache = new Map();
+async function withLiveStatus(subs, razorpayClient) {
+  let client = razorpayClient;
+  if (!client) { try { client = require("../config/razorpay").razorpay; } catch (_) { return subs; } }
+  await Promise.all(subs.map(async (s) => {
+    const hit = liveStatusCache.get(s.subscriptionId);
+    if (hit && Date.now() - hit.at < 5 * 60 * 1000) { s.liveStatus = hit.status; return; }
+    try {
+      const sub = await Promise.race([
+        client.subscriptions.fetch(s.subscriptionId),
+        new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), 6000)),
+      ]);
+      if (sub && sub.status) {
+        s.liveStatus = String(sub.status);
+        if (sub.paid_count != null) s.paidCount = sub.paid_count;
+        liveStatusCache.set(s.subscriptionId, { status: s.liveStatus, at: Date.now() });
+      }
+    } catch (_) { /* leave liveStatus off */ }
+  }));
+  return subs;
+}
+
 // How long after a manual resend another one is refused. Long enough that a
 // double-click or an automatic retry can't send the donor two WhatsApp
 // messages; short enough that a genuine second attempt isn't blocked for long.
@@ -360,7 +386,7 @@ const internalController = {
         found: true,
         donor,
         donations: donations.map(mapDonation),
-        subscriptions: collapseSubscriptionRows(donations),
+        subscriptions: await withLiveStatus(collapseSubscriptionRows(donations)),
       });
     } catch (err) {
       console.error("internal.getDonorByMobile error:", err);
@@ -792,4 +818,4 @@ const internalController = {
   },
 };
 
-module.exports = { internalController, normalizeMobile, mapSubscriptionOf, collapseSubscriptionRows };
+module.exports = { internalController, normalizeMobile, mapSubscriptionOf, collapseSubscriptionRows, withLiveStatus };
